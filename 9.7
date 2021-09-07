@@ -1,0 +1,97 @@
+TODO
+> MGR
+	>> 尽量每个步骤落实到文档和脚本
+	>> 安装
+		>>> install_mysql8.sh
+> vue
+
+
+page
+
+form
+> form子组件
+
+table
+
+modal  message
+
+menu
+
+
+shell
+shell变量定义，接受数据
+************************************************************
+命令的执行结果赋值给变量
+注意：变量和等号之间不允许有空格
+------------------------------------------------------------
+my_log=`grep "temporary password" /var/log/mysqld.log` # >> ...root@localhost: azyadfngasad
+temp_passwd=${my_log#*root@localhost: } # 切分 >> temp_passwd=azyadfngasad
+------------------------------------------------------------
+************************************************************
+
+shell字符串截取
+************************************************************
+https://www.cnblogs.com/kiko2014551511/p/11531558.html
+------------------------------------------------------------
+#! /bin/bash
+url="http://www.baidu.com"
+echo ${url#*://}     # > www.baidu.com
+# 这个对空格也有效，比如 "//"后有个空格，那么 ${url#*:// } 才能获取到原来结果
+------------------------------------------------------------
+************************************************************
+
+shell管道 |
+> "|" 用于命令与命令间的衔接
+************************************************************
+grep ip addr 内网
+https://blog.csdn.net/yiquan_yang/article/details/109184915
+------------------------------------------------------------
+machine_physics_net=$(ls /sys/class/net/ | grep -v "`ls /sys/devices/virtual/net/`");
+#先过滤网卡，在查找IP，不要再awk中过滤网卡
+my_ip=$(ip addr | grep $machine_physics_net | awk '/^[0-9]+: / {}; /inet.*global/ {print gensub(/(.*)\/(.*)/, "\\1", "g", $2)}' \
+| head -1);
+------------------------------------------------------------
+************************************************************
+
+shell对mysql进行操作
+> mysql8.0
+	>> mysql有些值一定要有'' 包围，如密码
+************************************************************
+sql为 create user 'repl'@'%' identified by '${my_passwd}';
+如果只想让host为192.168开头的用户登入需要将 '%' -> '192.168.%'
+%代表所有远程用户都可以
+------------------------------------------------------------
+temp_passwd="Testuser.2021"
+mysql -uroot -p${temp_passwd} -Dmysql -e "
+alter user 'root'@'localhost' identified by '${my_passwd}';
+create user 'repl'@'%' identified by '${my_passwd}';
+create user 'root'@'%' identified by '${my_passwd}';
+create user 'repl'@'localhost' identified by '${my_passwd}';
+grant all privileges on *.* to 'repl'@'%' with grant option;
+grant all privileges on *.* to 'repl'@'localhost' with grant option;
+grant all privileges on *.* to 'root'@'%' with grant option;
+";
+------------------------------------------------------------
+************************************************************
+
+mysql第一次不可以使用mysql -uroot -pXXX -e "xxx"; 最好的选择是
+************************************************************
+install.sh
+------------------------------------------------------------
+echo "密码是 :${temp_passwd}"
+mysql -uroot -p
+# 在这里阻塞住了 > 复制前面的密码输入，进了mysql环境使用
+source "./test.sql"
+------------------------------------------------------------
+
+test.sql
+------------------------------------------------------------
+alter user 'root'@'localhost' identified by 'Anyun.2020';
+create user 'repl'@'%' identified by 'Anyun.2020';
+create user 'root'@'%' identified by 'Anyun.2020';
+create user 'repl'@'localhost' identified by 'Anyun.2020';
+grant all privileges on *.* to 'repl'@'%' with grant option;
+grant all privileges on *.* to 'repl'@'localhost' with grant option;
+grant all privileges on *.* to 'root'@'%' with grant option;
+------------------------------------------------------------
+************************************************************
