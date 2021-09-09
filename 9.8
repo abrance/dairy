@@ -1,0 +1,62 @@
+
+helm操作
+> https://blog.csdn.net/hedu135790/article/details/16851077
+> http://tuhdo.github.io/helm-intro.html
+> C-x C-b 打开helm-buffer-list
+	>> 有以下的命令，注意大小写
+	tab              进入对buffer的操作列表
+	C-x C-f          相当与locate命令,输入某个模糊文件名查找出所有匹配结果
+	C-s              相当于grep命令, 可以选择某个文件,然后输入要查询字段,显示和grep这个文件相同,可以M-a选择所有文件,从所有文件中查询
+	M-R              重命名选定文件
+	M-C              copy选定文件
+	M-S              为选定文件建立软链接
+	M-H              为选定文件建立硬链接
+	M-D              删除某个文件
+	C-<backspace>    取消/开启自动补全文件名功能
+	C-l              退到上级目录
+	C-x @            用root打开某个文件
+	<right>          手动补全文件名
+	C-SPC            标记
+	C-j              invokes the persistent action
+	C-h m            查看帮助
+
+> MGR搭建
+	>> Mysql Group Replication(mysql组复制)，是mysql官方的高可用、高扩展解决方案。
+	>> group_replication.so插件是 mysql-server安装包中携带，rpm和yum安装存放在/usr/lib64/mysql/plugin下
+	>> 特性
+		>>> N
+		高一致性  基于原生复制及paxos协议的组复制技术，提供一致数据保证；
+		高容错性  只要不是大多数节点换掉就可以继续工作......
+		高扩展性
+		高灵活性
+	>> https://cloud.tencent.com/developer/article/1500389
+	>> 限制
+		>>> 只支持innodb
+		>>> 必须有显式主键
+		>>> 隔离级别建议为Read Committed，RC模式下没有GAP LOCK间隙锁，不支持serializable。
+		>>> 不建议外键
+		>>> 参数
+			>>>>
+			sql_mode 去除ONLY_FULL_GROUP_BY, STRICT_TRANS_TABLES, NO_ZERO_IN_DATE, NO_ZERO_DATE等限制 采取了较为宽松的模式
+			lower_case_table_names 统一设置为1 即不区分大小写 有些实例还没更改 大家建表建库的时候不要大写
+			character-set-server 统一设置为utf8 不要用latin1字符集
+			wait_timeout和interactive_timeout参数控制空闲连接的时长 当连接空闲时间超过此参数则会被断开 以后会统一设置为1800s即30分钟
+			transaction_isolation 事务隔离级别 MySQL官方默认是可重复读，MGR集群将采取读已提交（read-committed）级别
+
+	>> 配置
+		>>> my.cnf 配置
+			>>>>
+			server-id https://segmentfault.com/a/1190000020315036 需要设置为不一样的 1-2**32 的数字
+			loose-group_replication_local_address 本地供组成员访问端口 ip:port 33061约定端口
+			loose-group_replication_group_seeds 组中成员访问表 ip:port 33061约定端口
+
+hostname修改
+https://blog.csdn.net/u013991521/article/details/80522269
+> hostnamectl set-hostname <newhostname> # 这条命令会删除/etc/hostname文件中的主机名，然后替换为新的主机名
+
+shell 字符串中提取数字
+https://www.cnblogs.com/f-ck-need-u/p/7521506.html
+echo "2014年2月1日"|tr -cd "[0-9]"
+var1=abc3559
+var1_key=`echo $var1 | tr -cd "[0-9]"`
+
