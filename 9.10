@@ -6,6 +6,63 @@ TODO
 			>>>> 自动部署mysql8
 		>>> mysql_setup.sql
 			>>>> 自动添加mysql8的用户
+	>> 注意
+		 >> mysql安装时直接执行安装脚本，如果出错了，运行卸载脚本
+		 >> master slave 开启同步需要按顺序
+		 >> 一定要关闭firewalld和selinux关闭
+		 >> my.cnf 里面有一些需要注意的参数，一定要看看
+************************************************************
+my.cnf
+------------------------------------------------------------
+[mysqld]
+datadir=/var/lib/mysql
+socket=/var/lib/mysql/mysql.sock
+log-error=/var/log/mysqld.log
+pid-file=/var/run/mysqld/mysqld.pid
+#解决低版本的客户端连接8版本连接不上问题，更改默认认证插件
+default_authentication_plugin=mysql_native_password
+
+#复制框架
+gtid_mode=ON
+enforce_gtid_consistency=ON
+binlog_checksum=NONE
+
+log_bin=binlog
+log_slave_updates=ON
+binlog_format=ROW
+master_info_repository=TABLE
+relay_log_info_repository=TABLE
+
+#组复制设置
+#server必须为每个事务收集写集合，并使用XXHASH64哈希算法将其编码为散列
+transaction_write_set_extraction=XXHASH64
+#告知插件加入或创建组命名，UUID
+loose-group_replication_group_name="76f7e607-2448-49a9-af60-b3caec8b1f60"
+loose-group_replication_start_on_boot=off
+#告诉插件使用IP地址，端口33061用于接收组中其他成员转入连接
+loose-group_replication_bootstrap_group=off
+group_replication_recovery_get_public_key=ON  # 给予用户密钥
+
+# POINT 这几个需要按需要配置
+server_id = 101
+loose-group_replication_local_address = "192.168.65.26:33061"
+loose-group_replication_group_seeds = "192.168.65.25:33061,192.168.65.26:33061,192.168.65.27:33061"
+loose-group_replication_member_weight = 80  # 越高越容易成为master，100, 80, 50这样配置比较好
+------------------------------------------------------------
+MGR slave 开启同步失败，Error connecting to the local group communication engine instance
+------------------------------------------------------------
+关闭selinux
+------------------------------------------------------------
+MGR slave连不上master，状态为recovering   https://blog.csdn.net/jwocnimabi/article/details/107371051
+------------------------------------------------------------
+group_replication_recovery_get_public_key=ON  # 给予用户密钥
+或者在 mysql cmd 执行
+> set global group_replication_recovery_get_public_key=on;
+> start group_replication;
+------------------------------------------------------------
+************************************************************
+
+
 > vue
 	>> page
 	>> form
@@ -62,3 +119,4 @@ M-x name-last-kbd-macro RET后输入宏名如 macro-name1
 在 init.el 文件中 M-x insert-kbd-macro RET输入宏名 eval-buffer即可
 ------------------------------------------------------------
 ************************************************************
+
