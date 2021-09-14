@@ -1,0 +1,297 @@
+mysql 查看历史命令
+~/.mysql_history
+
+
+MGR脚本
+************************************************************
+mysql_setup.sql
+创建mgr用户sql脚本
+------------------------------------------------------------
+alter user 'root'@'localhost' identified by 'Anyun.2020';
+create user 'repl'@'%' identified by 'Anyun.2020';
+create user 'root'@'%' identified by 'Anyun.2020';
+create user 'repl'@'localhost' identified by 'Anyun.2020';
+grant all privileges on *.* to 'repl'@'%' with grant option;
+grant all privileges on *.* to 'repl'@'localhost' with grant option;
+grant all privileges on *.* to 'root'@'%' with grant option;
+------------------------------------------------------------
+
+my.cnf
+mysql配置文件
+------------------------------------------------------------
+[mysqld]
+datadir=/var/lib/mysql
+socket=/var/lib/mysql/mysql.sock
+log-error=/var/log/mysqld.log
+pid-file=/var/run/mysqld/mysqld.pid
+#解决低版本的客户端连接8版本连接不上问题，更改默认认证插件
+default_authentication_plugin=mysql_native_password
+
+#复制框架
+gtid_mode=ON
+enforce_gtid_consistency=ON
+binlog_checksum=NONE
+
+log_bin=binlog
+log_slave_updates=ON
+binlog_format=ROW
+master_info_repository=TABLE
+relay_log_info_repository=TABLE
+
+#组复制设置
+#server必须为每个事务收集写集合，并使用XXHASH64哈希算法将其编码为散列
+transaction_write_set_extraction=XXHASH64
+#告知插件加入或创建组命名，UUID
+loose-group_replication_group_name="76f7e607-2448-49a9-af60-b3caec8b1f60"
+loose-group_replication_start_on_boot=off
+#告诉插件使用IP地址，端口33061用于接收组中其他成员转入连接
+loose-group_replication_bootstrap_group=off
+------------------------------------------------------------
+
+install_mysql8.sh
+使用：直接执行后根据提示输入密码
+------------------------------------------------------------
+#!/bin/env bash
+
+yum install wget libaio perl net-tools -y
+
+if [ ! -d "/opt/software" ]
+  then
+    mkdir -p /opt/software
+fi
+cd /opt/software
+
+
+# mysql官方下载地址 rhel7 https://dev.mysql.com/downloads/mysql/
+# 可以直接下载 bundle包，会下载所有的模块压缩成tar包
+#wget https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-8.0.26-1.el7.x86_64.rpm-bundle.tar
+
+# 必须先卸载之前这个安装包，这个安装包自带了
+yum remove installed mysql-libs
+
+wget https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-community-common-8.0.26-1.el7.x86_64.rpm
+wget https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-community-server-8.0.26-1.el7.x86_64.rpm
+wget https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-community-client-8.0.26-1.el7.x86_64.rpm
+wget https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-community-libs-8.0.26-1.el7.x86_64.rpm
+wget https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-community-client-plugins-8.0.26-1.el7.x86_64.rpm
+wget https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-community-libs-compat-8.0.26-1.el7.x86_64.rpm
+
+rpm -ivh mysql-community-common-8.0.26-1.el7.x86_64.rpm
+rpm -ivh mysql-community-client-plugins-8.0.26-1.el7.x86_64.rpm
+rpm -ivh mysql-community-libs-8.0.26-1.el7.x86_64.rpm
+rpm -ivh mysql-community-libs-compat-8.0.26-1.el7.x86_64.rpm
+rpm -ivh mysql-community-client-8.0.26-1.el7.x86_64.rpm
+rpm -ivh mysql-community-server-8.0.26-1.el7.x86_64.rpm
+
+# mysql 目录授权
+chmod -R 777 /var/lib/mysql/ /var/lib/mysql-files/
+
+# 启动服务
+systemctl start mysqld
+# 修改密码
+
+#mysql -uroot -p -D mysql -e 'update user set PASSWORD=PASSWORD("123456") where user="root";'
+
+# 如果遇到报错执行
+# rpm -qa |grep -i mysql # 查找之前的包
+# rpm -e 查到的包名 # 卸载之前的包
+# yum remove installed mysql* # 删除mysql包
+# yum remove mysql-libs  # 这个包要单独再删
+
+# 如果 安装成功后出现报错 systemctl start mysqld 不能启动，报错为 cant access...... 权限问题
+# rm -rf /var/lib/mysql/*  # 删除里面文件后 systemctl start mysqld
+
+# 不要在变量和等号之间加空格
+my_log=`grep "temporary password" /var/log/mysqld.log`
+# 截取，需要注意首尾的空格
+temp_passwd=${my_log#*root@localhost: }
+my_passwd="Anyun.2020"
+
+
+echo "temp_passwd length: ${#temp_passwd}"
+echo "复制后面的，这是密码: $temp_passwd"
+# 检查变量是否含有空格
+#case "$temp_passwd" in
+#     *\ * )
+#           echo "match"
+#           my_log=`grep -o "[^ ]\+\( \+[^ ]\+\)*`
+#          ;;
+#       *)
+#           echo "no match"
+#           ;;
+#esac
+
+# mysql8 需要设置 大写+小写+数字+符号 的密码，密码需要使用''
+#mysql -uroot -p${temp_passwd} -Dmysql -e "
+#alter user 'root'@'localhost' identified by '${my_passwd}';
+#create user 'repl'@'%' identified by '${my_passwd}';
+#create user 'root'@'%' identified by '${my_passwd}';
+#create user 'repl'@'localhost' identified by '${my_passwd}';
+#grant all privileges on *.* to 'repl'@'%' with grant option;
+#grant all privileges on *.* to 'repl'@'localhost' with grant option;
+#grant all privileges on *.* to 'root'@'%' with grant option;
+#";
+
+echo "输入密码后进入mysql，执行 source mysql_setup.sql"
+mysql -uroot -p;
+echo "execute sql";
+
+echo "execute sql end"
+echo "install end ----------"
+------------------------------------------------------------
+
+mysql_deploy.sh
+使用方法：代码中设置IP hostname直接执行，执行完此文件后，决定执行
+master 或 slave init shell文件
+-----------------------------------------------------------
+-#!/bin/env bash
+
+# ip设置，手动设置
+# IP1=192.168.73.107
+IP1='192.168.65.25'
+IP2='192.168.65.26'
+IP3='192.168.65.27'
+MY_IP='192.168.65.25'
+MY_HOSTNAME='aymgr100.com'
+OTHER_IP=$IP1":33061"$IP2":33061"$IP3":33061"
+WEIGHT=100
+
+MY_SERVER_ID=`echo $MY_HOSTNAME | tr -cd "[0-9]"`
+
+if [ $IP1 = '' ]
+then
+  echo "请填上脚本的IP值"
+  exit 1
+fi
+
+# 关闭防火墙
+systemctl stop firewalld
+systemctl disable firewalld
+
+setenforce 0
+sed -i '/SELINUX/{s/enforcing/disabled/}' /etc/selinux/config
+
+# 插入hostname
+echo "
+$IP1 aymgr100.com
+$IP2 aymgr101.com
+$IP3 aymgr102.com
+" >> /etc/hosts
+
+# 设置hostname
+`hostnamectl set-hostname $MY_HOSTNAME`
+
+#>>> my.cnf 配置
+#  >>>>
+#  server-id https://segmentfault.com/a/1190000020315036 需要设置为不一样的 1-2**32 的数字
+#  loose-group_replication_local_address 本地供组成员访问端口 ip:port 33061约定端口
+#  loose-group_replication_group_seeds 组中成员访问表 ip:port 33061约定端口
+# https://blog.csdn.net/jwocnimabi/article/details/107371051 给予密钥
+echo "
+server_id = $MY_SERVER_ID
+loose-group_replication_local_address = $MY_IP":33061"
+loose-group_replication_group_seeds = $OTHER_IP
+loose-group_replication_member_weight = $WEIGHT
+group_replication_recovery_get_public_key=ON
+" >> ./my.cnf
+mv /etc/my.cnf /etc/my.cnf.bak.first
+cp ./my.cnf /etc/my.cnf
+systemctl restart mysqld
+
+# 创建mysql组内成员用户并赋权
+
+
+# 重启mysql服务，构建MGR，安装gr插件，检查插件
+mysql -uroot -pAnyun.2020 -e -Dmysql "
+install plugin group_replication soname 'group_replication.so';
+show plugins;
+"
+
+## master引导开始，slave启动后，关闭引导。
+#mysql -uroot -pAnyun.2020 -e -Dmysql "
+#change master to master_user='repl',master_password='Anyun.2020' for channel 'group_replication_recovery';     # 创建集群命令，每个节点都执行
+#set global group_replication_bootstrap_group=on;     # 开启引导，master执行
+#start group_replication;    # 开始同步，所有节点执行
+#set global group_replication_bootstrap_group=off;    # 关闭引导，master执行，master 在start group_replication后就可以执行了，不用等其它节点执行
+#"
+
+echo "mysql-deploy end ......"
+
+echo "master slave 按顺序执行，先执行mgr_master_init.sh，后执行 mgr_slave_init.sh"
+------------------------------------------------------------
+
+mgr_master_init.sh
+master 应该执行的
+------------------------------------------------------------
+mysql -uroot -pAnyun.2020 -e -Dmysql "
+change master to master_user='repl',master_password='Anyun.2020' for channel 'group_replication_recovery';     # 创建集群命令，每个节点都执行
+set global group_replication_bootstrap_group=on;     # 开启引导，master执行
+start group_replication;    # 开始同步，所有节点执行
+set global group_replication_bootstrap_group=off;    # 关闭引导，master执行，master 在start group_replication后就可以执行了，不用等其它节点执行
+"
+------------------------------------------------------------
+
+mgr_slave_init.sh
+slave应该执行
+------------------------------------------------------------
+mysql -uroot -pAnyun.2020 -e -Dmysql "
+change master to master_user='repl',master_password='Anyun.2020' for channel 'group_replication_recovery';     # 创建集群命令，每个节点都执行
+start group_replication;    # 开始同步，所有节点执行
+"
+------------------------------------------------------------
+
+mysql_check_mgr.sh
+------------------------------------------------------------
+# 查看当前组成员列表,查看是否只读
+mysql -uroot -pAnyun.2020 -Dmysql -e "
+select * from performance_schema.replication_group_members;
+show variables like '%read_only%';
+"
+echo "注意一定要三个都是online状态才算正常"
+------------------------------------------------------------
+************************************************************
+
+axios js引入
+************************************************************
+request.js
+http引入axios配置文件
+------------------------------------------------------------
+// 导入axios
+import axios from 'axios';
+
+// 1. 创建新的axios实例
+const instance = axios.create({
+  // 公共接口
+  baseURL: 'http://localhost:8888',
+  // 超时时间 单位是ms，这里设置了10s的超时时间
+  timeout: 10000,
+});
+
+// 2. 配置请求头，全局的 axios 默认值
+instance.defaults.headers.post['Content-Type'] = 'application/json;charset=UTF-8'; // 流程组件 content-type
+instance.defaults.headers.patch['Content-Type'] = 'application/json;charset=UTF-8'; // 流程组件 content-type
+
+// 5. 导出文件
+export default instance;
+------------------------------------------------------------
+
+get.js
+接口文件
+------------------------------------------------------------
+import request from "./request"
+
+const get = async (url, params, config) => {
+  config = {
+    method: 'get',
+    url: url
+  };
+  if (params) {
+    config.params = params;
+  }
+  const response = await request(config);
+  return response.data;
+}
+
+export {get};
+------------------------------------------------------------
+************************************************************
