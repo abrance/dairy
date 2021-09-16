@@ -1,0 +1,96 @@
+MGR脚本使用说明
+> 1.执行install_mysql8.sh 安装mysql-8.0，最后一步将自动把临时密码提取出来，需要根据提示手动复制临时密码，进行输入，即可完成安装
+	>> 以mysql-community-common-8.0.26-1.el7.x86_64.rpm 安装包为例进行说明
+	这是mysql社区版 common 包 版本为 8.0.26 适配红帽7系统el7(如果是centos8就需要用el8)x86_64 系统，有需求可以自己找寻相应的版本，怕麻烦也可以下载bundle 压缩包，里面有所有的mysql安装包。
+	一共需要6个安装包 分别为 common server client libs client-plugins (libs-compat) 不一定要最后一个
+> 2.部署MGR mysql_deploy.sh是一个没有完成的脚本，需要进行一定的设置。
+	> 2.1 设置 sh 脚本中的参数，本MGR集群共三个节点 IP1 IP2 IP3 MY_IP MY_HOSTNAME OTHER_IP WEIGHT这些参数需要设置 WEIGHT是本节点的权重，数字越大，权重越多。建议主节点使用100，次节点使用80，最次的使用50。
+	> deploy不要重复执行，如果第一次执行出错了，需要查看代码，适当注释片段在执行。（重复执行不会产生太大影响）
+> 3.master slave开启集群同步
+	>> 3.1 按顺序执行 master节点执行mgr_master_init.sh
+	>> 3.2 master执行成功后，slave执行mgr_slave_init.sh
+> 4.最后执行mysql_check_mgr.sh 进行检查是否部署MGR成功
+
+vuex
+> vuex 是状态管理工具，与redux类似，更简洁直观。管理全局变量
+> 安装
+	>> npm install vuex
+
+
+************************************************************
+store.js
+定义store
+------------------------------------------------------------
+import Vue from 'vue'
+import Vuex from 'vuex'
+
+const app = {
+  state: {
+		counter: 0
+	}
+}
+
+Vue.use(Vuex)
+const store = new Vuex.Store({
+  modules: {
+    app,
+  },
+  mutations: {
+    increment (state) {
+      state.app.counter++
+    }
+  }
+})
+------------------------------------------------------------
+main.js
+在vue入口声明使用store
+------------------------------------------------------------
+let my_vue = new Vue({
+  el: '#app',
+  router,
+  store,
+  components: { App },
+  template: '<App/>',
+})
+------------------------------------------------------------
+hello.vue
+模版中使用
+------------------------------------------------------------
+...
+    <span>
+      {{ hhh }}
+    </span>
+...
+
+export default {
+  // # 修改store中的数据，注意increment不能写为箭头函数，因为是vue组件才有 $store 属性，而并非此脚本
+  methods: {
+    increment(){
+      this.$store.commit('increment')
+    }
+  },
+	// 获取数据
+	computed: {
+	  hhh() {
+		  return this.$store.state.app.counter
+    }
+  }
+}
+------------------------------------------------------------
+************************************************************
+
+git 暂存区撤销操作
+> 针对git add 错误
+> git reset HEAD $filename  # git add 被取消了
+> git reset HEAD
+
+> 针对文件的修改 需要撤销 回退到没修改时的状态
+> git restore $filename  # 谨慎操作
+
+git status 说明
+> Changes not staged for commit 表示修改未被add
+> Untracked files               新增文件未被add
+> Changes to be committed       文件已经被  add 可以commit了
+
+深圳公积金贷款上限 50万
+额度为公积金账户余额的12倍，也就是只用得到4W。
