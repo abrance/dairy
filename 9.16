@@ -1,0 +1,95 @@
+vuex 高级
+> mapState
+  当一个组件需要获取多个状态的时候，将这些状态都声明为计算属性会有些重复和冗余
+************************************************************
+------------------------------------------------------------
+<span>{{ hdd }}</span>
+...
+  computed: mapState({
+    hdd: state => state.app.counter
+  })
+------------------------------------------------------------
+************************************************************
+> computed
+https://juejin.cn/post/6844903648116342792
+	>> 分离逻辑（比普通方法更轻量） 缓存值 双向绑定 的功能
+		 >>> 缓存值 以调高性能
+		    >>>> 下例，如果我们不去改变 text 的值，那么 normalizedText 就不会重新计算，也就是说，normalizedText 会缓存其求值结果，直到其依赖 text 发生改变
+		 
+
+************************************************************
+分离逻辑
+------------------------------------------------------------
+// 不使用computed
+<template>
+  <div id="example">
+    {{ text.split('').reverse().join('') }}
+  </div>
+</template>
+
+<script>
+export default {
+  data: () => ({
+    text: '花谢花飞花满天'
+  })
+}
+</script>
+
+// computed
+<template>
+  <div id="example">
+    {{ normalizedText }}
+  </div>
+</template>
+
+<script>
+export default {
+  data: () => ({
+    text: '花谢花飞花满天'
+  }),
+  computed: {
+    normalizedText() {
+      return this.text.split('').reverse().join('')
+    }
+  }
+}
+</script>
+
+
+------------------------------------------------------------
+双向绑定
+可以利用计算属性的 getter 和 setter 实现数据的双向绑定
+https://www.sdk.cn/details/DB9mj8nOlNOJkelyqK
+------------------------------------------------------------
+{{fullName}}
+...
+computed: {
+	// 计算属性的底层：
+	fullName: {
+		set: function () {
+		},
+		// 需要获取fullName的值的时候,就会调用get方法，
+		//所以页面显示的时abc,修改return的值就会更改fullName的值。
+		// 当没有set方法时可以省略get，变成最原始的用法
+		get: function () {
+		 return 'abc'
+		 //return this.firstName + ' '+ this.lastName
+		}
+	}
+}
+------------------------------------------------------------
+************************************************************
+
+iview使用
+> npm install --save view-design
+> 入口处
+------------------------------------------------------------
+import ViewUI from "view-design"
+import "view-design/dist/styles/iview.css"
+
+Vue.use(ViewUI)
+------------------------------------------------------------
+
+vue组件
+> template中需要一个元素包裹，与react一样
+
