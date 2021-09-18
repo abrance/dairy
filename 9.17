@@ -1,0 +1,75 @@
+TODO
+> vue写一个文件传输服务器
+	> iview 导航菜单与路由绑定
+
+vue-route
+> 安装
+	>> cnpm install --save vue-router
+> 基本使用
+
+************************************************************
+router/index.js
+// 定义router
+------------------------------------------------------------
+import Router from 'vue-router'
+
+Vue.use(Router)
+
+// 多个路由共用一个页面时使用children，需要在父级的component中加入 router-view
+export default new Router({
+  routes: [
+    {
+      path: '/',
+      name: 'gate',
+      component: gate,
+      children: [
+        {
+          path: "/test",
+          name: test,
+          component: test
+        }
+      ]
+    },
+    {
+      path: '/say_hi',
+      name: 'SayHi',
+      component: SayHi
+    },
+  ]
+})
+------------------------------------------------------------
+
+main.js
+// 引入router
+------------------------------------------------------------
+import router from './router'
+let my_vue = new Vue({
+  el: '#app',
+  store,
+  router,      // 导入router
+  components: { App },
+  template: '<App/>',
+})
+------------------------------------------------------------
+
+gate.vue
+------------------------------------------------------------
+<template>
+  <div>
+    <span>GATE</span>
+    <router-view></router-view>
+  </div>
+</template>
+...
+------------------------------------------------------------
+
+使用router-link 进行跳转
+<router-link :to="$path">aaaa</router-link>
+或者
+<router-link :to="{path: '$path'}">aaaa</router-link>
+命名的路由
+<router-link :to="{name: 'user', params:{userId:123} }">User</router-link>
+带查询参数
+<router-link :to="{path:'register', query: {plan: 'private'}}">Register</router-link>
+************************************************************
+
