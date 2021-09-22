@@ -1,0 +1,189 @@
+> 饿肚子 1次 8:59
+> 饿肚子 2次 10:00
+> 饿肚子 3次 10:45
+
+> Vue ref
+	>> vue 中直接操作dom需要使用ref
+	>> $refs 是一个对象，持有已注册过ref的所有子组件
+
+
+************************************************************
+test.vue
+------------------------------------------------------------
+<template>
+  <div>
+    <span> test </span>
+    <h3 id="myh3" ref="myh3">H3</h3>
+  </div>
+</template>
+
+<script>
+export default {
+  name: "test",
+  mounted() {
+	  // 获取 ref标记的元素
+    console.log(this.$refs.myh3.innerHTML)
+  }
+}
+</script>
+------------------------------------------------------------
+也可使用在子组件中
+------------------------------------------------------------
+<body>
+    <div id="app">
+        <input type="button" value="获取h3的值" @click="getElement()">
+        <h3 id="myh3" ref="myh3" >我是一个h3</h3>
+        <hr>
+				// 标记子组件
+        <login ref='mylogin'></login>
+    </div>
+
+    <script>
+
+        var login = {
+            template: "<h3>我是login子组件</h3>",
+            data(){
+                return {
+                    msg: "ok"
+                }
+            },
+            methods:{
+                show(){
+                    console.log("show方法执行了...")
+                }
+            }
+        }
+
+        var vm = new Vue({
+            el: "#app",
+            data: {},
+            methods: {
+                getElement(){
+                    // 通过 getElementById 方式获取 DOM 对象
+                    // console.log(document.getElementById("myh3").innerHTML)
+                    // console.log(this.$refs.myh3.innerHTML)
+
+                    console.log(this.$refs.mylogin.msg)
+                    this.$refs.mylogin.show()
+                }
+            },
+            components:{
+                login
+            }
+        })
+    </script>
+</body>
+------------------------------------------------------------
+************************************************************
+
+iview Message
+> 全局提示
+> 显示一个小窗口进行一些提示
+	>> 事件成功，失败
+	>> 正在加载
+	>> 提醒
+
+> vue router.beforeEach
+	>> router.beforeEach 一般用来做进入页面的限制。如不能登陆就无法进入某些页面。
+************************************************************
+router/index.js
+------------------------------------------------------------
+const router = new VueRouter({
+  routes: [
+    {
+      path: '/foo',
+      component: Foo,
+      children: [
+        {
+          path: 'bar',
+          component: Bar,
+          // a meta field
+          meta: { requiresAuth: true }
+        }
+      ]
+    }
+  ]
+})
+------------------------------------------------------------
+login.js
+------------------------------------------------------------
+router.beforeEach((to, from, next) => {
+  if (to.matched.some(record => record.meta.requiresAuth)) {
+    // this route requires auth, check if logged in
+    // if not, redirect to login page.
+    if (!auth.loggedIn()) {
+      next({
+        path: '/login',
+        query: { redirect: to.fullPath }
+      })
+    } else {
+      next()
+    }
+  } else {
+    next() // 确保一定要调用 next()
+  }
+})
+------------------------------------------------------------
+通过token判断角色实现动态路由
+------------------------------------------------------------
+const whiteList = ['/login', '/authredirect'] // 不重定向白名单
+router.beforeEach((to, from, next) => {
+	NProgress.start() // 开启Progress
+	if(store.getters.token) { // 判断是否有token
+		if(to.path === '/login') {
+			next({
+				path: '/'
+			})
+		} else {
+			
+			if(store.getters.roles.length === 0) { // 判断当前用户是否已拉取完user_info信息
+
+				store.dispatch('GetInfo').then(res => { // 拉取user_info
+					const roles = res.data.role
+					store.dispatch('GenerateRoutes', {  
+						roles
+					}).then(() => { // 生成可访问的路由表						
+						router.addRoutes(store.getters.addRouters) // 动态添加可访问路由表
+						next({...to
+						}) // hack方法 确保addRoutes已完成
+					})
+				}).catch(() => {
+					store.dispatch('FedLogOut').then(() => {
+						next({
+							path: '/login'
+						})
+					})
+				})
+				
+			} else {console.log(store.getters.addRouters)
+				store.dispatch('getNowRoutes', to);
+				if(hasPermission(store.getters.roles, to.meta.role)) {
+					next() //
+				} else {
+					next({
+						path: '/',
+						query: {
+							noGoBack: true
+						}
+					})
+				}
+			}
+		}
+	} else {
+		if(whiteList.indexOf(to.path) !== -1) { // 在免登录白名单，直接进入
+			next()
+		} else {
+			next('/login') // 否则全部重定向到登录页
+			NProgress.done() // 在hash模式下 改变手动改变hash 重定向回来 不会触发afterEach 暂时hack方案 ps：history模式下无问题，可删除该行！
+		}
+	}
+})
+------------------------------------------------------------
+************************************************************
+	>> vue router.beforeEach next()
+		https://router.vuejs.org/zh/guide/advanced/navigation-guards.html#%E5%85%A8%E5%B1%80%E5%89%8D%E7%BD%AE%E5%AE%88%E5%8D%AB
+		>>> next: Function: 一定要调用该方法来 resolve 这个钩子。执行效果依赖 next 方法的调用参数。
+		>>> 在beforeEach中相当于每访问一次路由都进行了一次拦截，结果依靠next进行跳转，要么重定向到某个路由next('/login'), 要么可以正常访问next()。\
+
+vue-router flask JWT用户鉴权逻辑
+https://www.cnblogs.com/encleon7/p/14287566.html
