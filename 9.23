@@ -1,6 +1,8 @@
 > 饿肚子 2次 10:41
 > 饿肚子 3次 10:43
 
+> 饿肚子 1次 14:55
+
 > vue flask token鉴权机制
 	>> flask
 ************************************************************
@@ -162,5 +164,19 @@ login.vue
       })
     }
   }
+------------------------------------------------------------
+request.js
+配置axios拦截器，每次请求时带上Authorization token
+------------------------------------------------------------
+...
+instance.interceptors.request.use((config)=> {
+  let token = store.state.user.token;
+  if (token) {
+    config.headers.Authorization = token;
+  }
+  return config
+}, function (error) {
+  return Promise.reject(error);
+})
 ------------------------------------------------------------
 ************************************************************
