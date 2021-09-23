@@ -1,0 +1,166 @@
+> 饿肚子 2次 10:41
+> 饿肚子 3次 10:43
+
+> vue flask token鉴权机制
+	>> flask
+************************************************************
+config.py
+------------------------------------------------------------
+...
+# 设置一个salt
+app.config['SECRET_KEY'] = 'never-guess'
+...
+------------------------------------------------------------
+utils.py
+------------------------------------------------------------
+from flask import current_app
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, SignatureExpired, BadSignature
+
+# 生成token
+def generate_auth_token(user_id, expiration=36000):
+    s = Serializer(current_app.config['SECRET_KEY'], expires_in=expiration)
+		# 需要用decode的原因是 dumps出来后是bytes类型，不能json化，decode为字符串即可
+    return s.dumps({
+        'user': user_id
+    }).decode()
+
+# 验证token
+def verify_auth_token(token):
+    s = Serializer(current_app.config['SECRET_KEY'])
+    try:
+        data = s.loads(token)
+        return data
+    except SignatureExpired as se:
+        print(se)
+        return None
+    except BadSignature as be:
+        print(be)
+        return None
+------------------------------------------------------------
+apis.py
+------------------------------------------------------------
+from functools import wraps
+from flask import jsonify, request
+
+
+# 随便写一下的验证用户名密码逻辑
+def verify_password(user, password):
+    if user:
+        # db中进行验证
+        if user == 'admin@wz.com' and password == "123456":
+            print('pass')
+            return True
+    return False
+
+# 自定义login_required
+def login_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        token = request.headers.get("Authorization", default=None)
+        if token:
+            data = verify_auth_token(token)
+            print('token: {}'.format(data))
+            if data:
+                return f(*args, **kwargs)
+        else:
+            return jsonify(error("403"))
+    return wrapper
+
+# 需要的接口加上这个装饰器即可
+@app.route("/api/uploadFileLs", methods=['POST'])
+@login_required
+def uploadFileLs():
+    file = request.files.get('file')
+    # 单一的文件对象
+    file.save(str(Path(Config.upload_path) / file.filename))
+    return jsonify(res('ok'))
+
+# login不能写login_required，这时候没有token
+@app.route("/api/login", methods=['POST'])
+def login():
+    info = request.data
+    info = json.loads(info)
+    print("info {}".format(info))
+    username = info.get('username')
+    pwd = info.get('password')
+    print("{}\n{}".format(username, pwd))
+    ret = verify_password(username, pwd)
+    if ret:
+        token = generate_auth_token(username)
+        print("token {}".format(token))
+        return jsonify(res(token))
+    else:
+        return jsonify(error("auth error"))
+------------------------------------------------------------
+************************************************************
+	>> vue
+************************************************************
+store/index.js
+------------------------------------------------------------
+const user = {token: {type: String}}
+
+const store = new Vuex.Store({
+  modules: {
+    app,
+    user,
+  },
+  getters,
+  mutations: {
+    increment (state) {
+      state.app.counter++
+    },
+		# 定义更新token的mutation
+    update_token (state, token) {
+      state.user.token = token
+    }
+  }
+})
+------------------------------------------------------------
+router/index.js
+------------------------------------------------------------
+// 需要的组件加上meta 选项
+...
+          component: upload,
+          meta: {
+            requiresAuth: true
+          }
+...
+------------------------------------------------------------
+router/routerFilter.js
+------------------------------------------------------------
+// 路由拦截跳转逻辑，如果没有token重定向到 登陆页面
+router.beforeEach((to, from, next) => {
+  if (store.state.user.token) {
+      next()
+  } else {
+    if (["/sign-in", '/register'].indexOf(to.path) > -1){
+      next()
+    } else {
+      next({path: "/sign-in"})
+    }
+  }
+})
+------------------------------------------------------------
+login.vue
+------------------------------------------------------------
+  // 登陆逻辑，如果登陆请求成功会返回一个token，将token保存起来，以后每次请求都带这个token
+  methods: {
+    handleLogin(){
+      const data = {
+        "username": this.loginForm.email,
+        "password": this.loginForm.password
+      }
+      let token = ''
+      login(data).then((res)=> {
+        console.log(res)
+        if (res["code"] === 200) {
+          token = res['res']
+					// 调用mutation更新token
+          store.commit('update_token', token)
+          console.log('token', store.state.user.token)
+        }
+      })
+    }
+  }
+------------------------------------------------------------
+************************************************************
