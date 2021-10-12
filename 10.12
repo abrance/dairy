@@ -1,0 +1,62 @@
+TODO
+> 档案云打包
+> 复习
+	>>
+
+复习
+> 超融合架构, ceph, 虚拟化
+> pandas, numpy
+> nginx
+
+> 算法
+> 遇到的问题
+
+复习书籍
+> 命令行与shell脚本
+> TCP/IP编程
+> Linux高性能服务器编程
+
+> 递归删除目录下所有pyc后缀的文件
+find . -name "*.pyc"  | xargs rm -f
+
+> wget 镜像某网站
+	>> https://www.cnblogs.com/sx66/p/11887022.html
+	>> wget --mirror --convert-links www.a.com    # --mirror -N -r -l inf --no-remove-listing 的缩写形式。 --convert-links --convert-links 让下载得到的 HTML 或 CSS 中的链接指向本地文件。
+
+> 安装cmake-3.21.1
+************************************************************
+install_cmake.sh
+------------------------------------------------------------
+#!/bin/bash
+
+yum install -y gcc gcc-c++ make automake
+
+yum install -y wget
+
+if [ ! -d "/opt/software" ]
+
+  then
+
+    mkdir -p /opt/software
+
+fi
+
+cd /opt/software
+
+if [ ! -f "cmake-3.21.1.tar.gz" ]
+
+  then
+
+    wget https://cmake.org/files/v3.21/cmake-3.21.1.tar.gz
+
+fi
+
+tar -zxvf cmake-3.21.1.tar.gz
+
+cd cmake-3.21.1
+
+./bootstrap && make -j4 && sudo make install
+ln -s /usr/local/bin/cmake /bin/cmake
+# 如果遇到openssl找不到问题,yum remove openssl-devel 再重新安装
+------------------------------------------------------------
+************************************************************
