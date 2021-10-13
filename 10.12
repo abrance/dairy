@@ -30,31 +30,18 @@ install_cmake.sh
 #!/bin/bash
 
 yum install -y gcc gcc-c++ make automake
-
 yum install -y wget
-
 if [ ! -d "/opt/software" ]
-
   then
-
     mkdir -p /opt/software
-
 fi
-
 cd /opt/software
-
 if [ ! -f "cmake-3.21.1.tar.gz" ]
-
   then
-
     wget https://cmake.org/files/v3.21/cmake-3.21.1.tar.gz
-
 fi
-
 tar -zxvf cmake-3.21.1.tar.gz
-
 cd cmake-3.21.1
-
 ./bootstrap && make -j4 && sudo make install
 ln -s /usr/local/bin/cmake /bin/cmake
 # 如果遇到openssl找不到问题,yum remove openssl-devel 再重新安装
