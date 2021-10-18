@@ -1,0 +1,44 @@
+医疗云环境
+> mc-server 192.168.70.121 
+> mc-portal 192.168.70.122
+> mc-notify 192.168.70.123
+> agent     192.168.70.124 帐密 administrator/anyun.2020
+
+> mysql集群在 121 122 123 帐密 root/anyun.2020
+> kafka 在     121 122 123 不可用状态
+> mc上层的超融合平台  https://192.168.70.80:8006/ 帐密 root/$1$20080222
+
+
+医疗云环境
+> mc-server 192.168.20.50
+> mc-portal 192.168.20.51
+> mc-notify 192.168.20.52 帐密 root/anyun.2020
+> agent     192.168.20.53 帐密 administrator/anyun.2020
+> PACS 客户端 192.168.20.202 帐密 administrator/anyun.2020
+
+> mc上层的超融合平台 https://192.168.68.10:8006/ 帐密 root/$1$20080222
+
+
+> 不断开连接的问题是因为供应商的服务不支持集群，而我们希望他们支持集群。
+
+> 可变和不可变类型
+	>> list为可变类型，往list中添加新元素并不会该对象内存地址不会发生改变
+	>> tuple为不可变类型，添加新元素后，内存地址发生改变
+
+> elisp编程，实现：dairy-mode
+	>> https://segmentfault.com/a/1190000039767505
+	>> https://www.cnblogs.com/eat-and-die/p/10310586.html
+	>> http://ergoemacs.org/emacs/elisp_string_functions.html
+	>> https://www.gnu.org/software/emacs/manual/html_node/elisp/index.html
+	>> https://feng-qi.github.io/2017/03/24/emacs-regex-tutorial/
+	
+	>> 如果一行的最前面一个字符为 > ，则回车默认为 对齐的>，tab行为为空两格的 >>
+
+> elisp
+	>> 执行单行 eval-last-sexp C-x C-e
+	>> 执行buffer eval-buffer
+
+> elisp函数
+	>> princ
+获取这一行内容 helm-current-line-contents
+
