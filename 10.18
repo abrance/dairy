@@ -1,4 +1,4 @@
-医疗云环境
+医疗云环境(借的要还)
 > mc-server 192.168.70.121 
 > mc-portal 192.168.70.122
 > mc-notify 192.168.70.123
@@ -40,5 +40,4 @@
 
 > elisp函数
 	>> princ
-获取这一行内容 helm-current-line-contents
-
+> 获取这一行内容 helm-current-line-contents
