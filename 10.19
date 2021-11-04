@@ -1,0 +1,46 @@
+magit 操作
+> https://segmentfault.com/a/1190000039794012
+
+打卡
+
+> mc-server 部署
+	>> 50
+> mc-portal
+> mc-agent
+> mc-notify
+
+追加文本到文件
+> 追加的方式有两种 >> 和 tee，后者可以同时给多个文件追加，给一个文件追加一般用前一种
+	>> ">>" 是redirect指令，常于echo，printf和cat指令一起用   >> 改为 > 则是覆盖，适用以下所有命令
+		>>> echo
+			>>>> echo "hello world " >> a.txt
+			>>>> echo用上-e参数可以在里面使用反转义字符
+				echo -e "hello world \nhello world" >> a.txt
+		>>> printf
+			>>>> printf比echo支持更复杂的操作，比如可以设定输出的格式
+				printf "my name is %s\n" $USER >> a.txt
+		>>> cat << EOF >>  直接编辑
+************************************************************
+输入多行文本到文件比较好的方式
+------------------------------------------------------------
+cat <<EOF>> a.txt 或 cat >> a.txt << EOF
+> hello
+> EOF
+------------------------------------------------------------
+************************************************************
+	>> tee
+		>>> echo "hello world" | tee -a a.txt
+			>>>> -a 表示 append ， > /dev/null 不显示在终端
+			不加 -a 直接覆盖
+			追加多个文件
+			echo "hello world" | tee -a a.txt b.txt c.txt
+
+> github迁移到gitee
+	>> gitee 中导入github仓库
+	>> 已导入的点击gitee仓库的刷新按钮进行github仓库的同步
+
+1.信息安全是什么
+2.信息安全重要性
+3.危害信息安全的途径
+4.怎么防止
+5.总结

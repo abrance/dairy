@@ -1,0 +1,69 @@
+go 多态
+************************************************************
+通过interface实现，如定义接口Animal，其中两个方法 eat和sleep，然后定义Cat和Dog结构体，都实现方法eat和sleep即可
+------------------------------------------------------------
+type Animal interface {
+        Eat()
+        Sleep()
+}
+type Cat struct {
+        Name string
+}
+func (c Cat) Eat() {
+        fmt.Printf("Cat %s is eating.\n", c.Name)
+}
+func (c Cat) Sleep() {
+        fmt.Printf("Cat %s is sleeping.\n", c.Name)
+}
+type Dog struct {
+        Name string
+}
+func (d Dog) Eat() {
+        fmt.Printf("Dog %s is eating.\n", d.Name)
+}
+func (d Dog) Sleep() {
+        fmt.Printf("Dog %s is sleep.\n", d.Name)
+}
+func AnimalEat(animal Animal) {
+        animal.Eat()
+}
+func TestPolymorphismOne(t *testing.T) {
+        kitty := &Cat{"kitty"}
+        // kitty.Eat()
+
+        spike := &Dog{"spike"}
+        // spike.Eat()
+
+        AnimalEat(kitty)
+        AnimalEat(spike)
+}
+------------------------------------------------------------
+************************************************************
+
+go 封装
+> 使用struct进行封装
+
+go 目录结构
+> https://link.zhihu.com/?target=https%3A//github.com/golang-standards/project-layout
+├── LICENSE.md
+├── Makefile
+├── README.md
+├── api            项目对外提供的api接口定义文件
+├── assets
+├── build
+├── cmd            可执行文件 如启动服务进程的代码
+├── configs        
+├── deployments
+├── docs
+├── examples
+├── githooks
+├── init
+├── internal       私有代码，真正的项目代码应该写在/internal/app里，同时这些内部应用依赖的代码库应该在 /internal/pkg 子目录和 /pkg 中
+├── pkg            可以被外部应用使用的代码库，其它项目可以直接import引入
+├── scripts
+├── test
+├── third_party
+├── tools
+├── vendor
+├── web
+└── website
