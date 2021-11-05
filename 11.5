@@ -4,3 +4,162 @@ TODO
 > 6-8    骑车后海
 > 8-10   回家洗澡
 > 10-15  出门学习
+
+TODO
+> 多任务
+> 常用序列化
+> 类型转化
+> 分布式技术及开源组件
+> k8s docker devops
+
+emacs 中文乱码问题
+************************************************************
+------------------------------------------------------------
+;; set language environment
+(set-language-environment 'UTF-8)
+(set-locale-environment "UTF-8")
+------------------------------------------------------------
+************************************************************
+
+go序列化
+> json
+> https://blog.csdn.net/u013457167/article/details/106864491
+************************************************************
+序列化 encoding/json包Marshal
+------------------------------------------------------------
+type Person struct {
+	Name   string
+	Gender string
+	Age    uint32
+}
+
+	// 默认初始化
+	p := Person{"a", "male", 23}
+	fmt.Println(p)
+	fmt.Printf("%v\n", p) //{a male 23}
+
+	// 指定成员初始化
+	p1 := Person{Name: "wsq", Gender: "male"}
+	fmt.Println(p1) //{wsq male 0}
+
+	// 序列化
+	b, _ := json.Marshal(p)
+	fmt.Println(string(b)) //{"Name":"a","Gender":"male","Age":23}
+}
+------------------------------------------------------------
+反序列化 Unmarshal
+------------------------------------------------------------
+  b := []byte(`{"Name":"Wednesday","Age":6,"Parents":["Gomez","Morticia"]}`)
+	var f interface{}
+	err := json.Unmarshal(b, &f)
+	if err != nil {
+		errors.New("unmarshal error")
+	}
+	fmt.Printf("%T, %v\n", f, f)
+------------------------------------------------------------
+************************************************************
+
+go 类型转化
+> https://learnku.com/articles/42797
+> 断言
+	>> 断言通过判断变量是否可以转换成某一个类型，go 提供了另外一种带返回是否成立的断言语法：s, ok := x.(T)  ok 会返回是否断言成功，不会出现 panic，ok 就表示是否是成功了。
+	>> switch断言
+************************************************************
+------------------------------------------------------------
+switch i := x.(type) {
+case nil:
+    printString("x is nil")                // type of i is type of x (interface{})
+case int:
+    printInt(i)                            // type of i is int
+case float64:
+    printFloat64(i)                        // type of i is float64
+case func(int) float64:
+    printFunction(i)                       // type of i is func(int) float64
+case bool, string:
+    printString("type is bool or string")  // type of i is type of x (interface{})
+default:
+    printString("don't know the type")     // type of i is type of x (interface{})
+}
+------------------------------------------------------------
+************************************************************
+> 强制
+	>> unsafe包的使用
+> 显式
+	>> T(val)
+> 隐式
+	>> 平时经验
+
+docker run参数
+> -itd              -i 交互式 -t 分配一个终端 -d 后台运行
+> --link=$container 连接到另一个容器
+> -e                加入环境变量
+> -v                设置挂载点
+> -p $host_port:$container_port 设置端口映射
+> --name            设置容器名
+> --rm          运行后清理容器文件系统数据，不能和-d一起用，即只能清理前台启动的容器
+
+k8s 名词
+> https://cloud.tencent.com/developer/article/1456577
+> master 是集群的控制节点，每个k8s集群需要一个master进行整个集群的管理和控制。k8s几乎把所有控制命令发给它，master负责整个具体的执行过程。通常独占一台主机（高可用会部署多台主机）
+	>> master 关键过程
+     API Server 集群控制的入口进程
+		 k8s Controller Manager 资源对象的自动化控制中心
+		 k8s Scheduler 资源调度的进程
+		 etcd 资源的数据存储中心
+> node 工作负载节点，某node实例down时，上面的工作负载会被master自动转移到其他节点上
+	>> 关键过程
+	   kubelet 负责pod对应容器的创建、启停
+		 kube-proxy 实现k8s service通信和负载均衡的重要组件
+> pod k8s创建或部署的最小/最简单的基本单位，pod中可以有一个或多个容器，代表集群上正在运行的一个进程。封装了一个应用的各种资源策略
+  >> 网络 每个pod被分配独立的ip地址，pod中的容器共享网络命名空间包括IP和端口，容器间可通过localhost通信，外部通信时，需要协调共享网络资源如端口
+  >> 存储 pod可以指定一组共享存储volumes，pod中的容器可以访问共享volumes，允许共享数据。volumes可用于数据持久化
+	>> 生命周期
+		>>> 挂起 pending 正在创建pod运行的容器资源，尚未全部准备完全
+		>>> 运行中 running pod中所有的容器已被创建，至少有一个容器正在运行，或者正处于启动和重启
+		>>> 成功succeeded 所有容器都被成功终止，并且不会再重启
+		>>> 失败failed pod所有容器都已终止，至少有一个容器是因为失败终止（容器以非0状态退出或被系统终止）
+		>>> 未知 unknown 无法取得pod状态，通信失败
+> labels
+  >> 是一对key/value，由用户指定，label可以附加到各种资源对象，如node pod service RC等
+> ReplicationController RC是核心概念，提供高可用、伸缩、滚动升级、回滚功能
+  >> 通过yaml创建启动replicas集合
+> Deployment 新一代的RC
+	>> https://www.cnblogs.com/boshen-hzb/p/7097811.html
+	>> RC基础上拥有新特性，事件和状态查看，版本记录，回滚，升级暂停和启动，多种升级方案
+> Service 定义了一组Pod的逻辑集合和一个用于访问它们的策略
+	>> https://www.jianshu.com/p/f2f44f2d4176
+	>> 一个Serivce下面包含的Pod集合一般是由Label Selector来决定的。假如我们后端运行了3个副本，这些副本都是可以替代的，因为前端并不关心它们使用的是哪一个后端服务。尽管由于各种原因后端的Pod集合会发生变化，但是前端却不需要知道这些变化，也不需要自己用一个列表来记录这些后端的服务，Service的这种抽象就可以帮我们达到这种解耦的目的。
+> Volume
+	>> volume解决两个问题，容器数据持久化，pod容器间共享文件。和docker volume不同，它有明确的生命周期
+> namespace 用于对k8s中资源对象的分组。不同组之间隔离不可见，适合用于隔离不同用户创建的资源（无法保证网络的隔离性，service可以跨namespace访问）
+	
+
+k8s 简介
+> https://www.cnblogs.com/cnblx/p/11653152.html
+> k8s是一个开源的容器集群管理系统，可以实现容器集群的自动化部署、自动扩缩容、维护等功能。
+   >> 功能
+	 1、故障迁移：当某一个node节点关机或挂掉后，node节点上的服务会自动转移到另一个node节点上，这个过程所有服务不中断。这是docker或普通云主机是不能做到的
+	 2、资源调度：当node节点上的cpu、内存不够用的时候，可以扩充node节点，新建的pod就会被kube-schedule调度到新扩充的node节点上
+	 3、资源隔离：创建开发、运维、测试三个命名空间，切换上下文后，开发人员就只能看到开发命名空间的所有pod，看不到运维命名空间的pod，这样就不会造成影响，互不干扰
+				传统的主机或只有docker环境中，登录进去就会看到所有的服务或者容器
+	 4、因为采用docker容器，进程之间互不影响
+	 5、安全：不同角色有不同的权限，查看pod、删除pod等操作；RBAC认证增加了k8s的安全
+	 6、快速精准地部署应用程序 限制硬件用量仅为所需资源
+  >> 优势
+  可移动: 公有云、私有云、混合云、多态云
+  可扩展: 模块化、插件化、可挂载、可组合
+  自修复: 自动部署、自动重启、自动复制、自动伸缩
+  负载均衡
+  发布方便k8s可以更快的更新新版本，打包应用，更新的时候可以做到不用中断服务，服务器故障不用停机，从开发环境到测试环境到生产环境的迁移极其方便，一个配置文件搞定，一次生成image，到处运行
+		
+docker和k8s的关系
+> docker 是应用容器引擎，三大核心概念：镜像容器仓库。是创建容器的工具
+> k8s 是基于容器的集群管理平台，可以实现容器集群的自动化部署、自动扩缩容、维护等功能
+
+win10调整alt-tab 对edge标签页行为
+> win10搜索中输入alt，alt-tab 设置为仅打开的窗口
+
+TODO
+> 多任务
+> 分布式技术及开源组件
+> k8s docker devops
