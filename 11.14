@@ -1,0 +1,23 @@
+> 问题：想要实现将jumpserver-core项目通过海恩系统进行展示，但是登录时因为header里面是没有身份信息的，所以验证不通过。
+> 方案：前端iframe 采用token放在url里面，后端的django在解析的时候针对这个这个域名，解析url。就是说：在原本只进行header解析的机制不变，再加一套url解析，将解析到的token等字段进行验权。
+	>> 1. 加入一个middleware 设置request中cookie值。 问题： request貌似不可改变
+
+todo
+> csrf_token 数据传递机制
+> django csrf的处理
+
+> reverse 反向路由解析
+	>> https://www.dusaiphoto.com/article/79/
+	>> path('/foo', ..., name=foo_name) 只需要reverse("/foo")就可以得到foo_name 这个路径别名，这样做的目的是防止硬编码
+
+> django Signal机制: https://www.liujiangblog.com/course/django/170
+
+> 解决方案：
+	>> enable cookie问题： apps/authentication/views/login/UserLoginView/form_valid() 注释81L 82L 也就是不进行session的验证 
+	>> 重定向到login_guard
+		>>> auth_login
+			>>>> common/utils/django/get_object_or_none 获取user  user.backend被赋值
+		>>> send_auth_signal 需要保留，因为保留了日志等信息
+		>>> clear_auth_mark  需要保留，清除了META header的信息
+		>>> redirect_user_first_login_or_index 这个取得了真正的登录url，如果之前没有登录信息，会跳到index页面
+		

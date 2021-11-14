@@ -1,0 +1,10 @@
+> todo:
+	>> 1. 部署环境
+	>> 2. 修改代码、不断调试
+	>> 3. 
+
+debian查看公网ip
+> curl ip.sb
+
+echo -e "export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3\nexport WORKON_HOME=~/py_vm\nexport VIRTUALENVWRAPPER_VIRTUALENV=/usr/local/bin/virtualenv\nsource /usr/local/python3/bin/virtualenvwrapper.sh" >> ~/.bashrc
+
