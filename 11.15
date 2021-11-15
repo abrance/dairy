@@ -1,0 +1,44 @@
+
+{'csrftoken': 'Y6jPqcPYgvwar6W1a67QmOJJwqtPXnuAB1LUHtlms4MmQ03xbcRDvK3aq5IiLEIN', 'sessionid': 'jxnk4mtjfe38wyrs2p11neevsefeu9bo', 'jms_current_org': '%7B%22id%22%3A%22DEFAULT%22%2C%22name%22%3A%22DEFAULT%22%7D', 'X-JMS-ORG': 'DEFAULT', 'jms_current_role': '146', 'django_language': 'zh-hans'}
+cookie: {'jms_current_org': '%7B%22id%22%3A%22DEFAULT%22%2C%22name%22%3A%22DEFAULT%22%7D', 'X-JMS-ORG': 'DEFAULT', 'jms_current_role': '146', 'django_language': 'zh-hans', 'csrftoken': 'Y6jPqcPYgvwar6W1a67QmOJJwqtPXnuAB1LUHtlms4MmQ03xbcRDvK3aq5IiLEIN', 'sessionid': None, 'sidebarStatus': '1'}
+
+luna  sessionid 
+jxnk4mtjfe38wyrs2p11neevsefeu9bo
+
+jumpserver2.0.1 部署
+> https://blog.csdn.net/weixin_54632015/article/details/114680224
+python环境需要
+source /opt/py3/bin/activate
+
+jumpserver日志
+> core代码里面使用日志
+************************************************************
+# 这个logger直接输出到jumpserver.log里
+------------------------------------------------------------
+from apps.common.utils import get_logger
+logger = get_logger(__file__)
+logger.error("error")
+------------------------------------------------------------
+************************************************************
+
+
+session
+> sessionid:fjw2wvitvs7t8pteyt22jfhevrd5qc0g
+> redis 查看sessionstore
+	>> select 5;
+	>> keys *
+
+
+解不开session_value的原因
+> session_value采用了sessionbase类，进行了强加密，里面甚至使用了mac信息，这种级别的加密不要尝试去解
+> 如果想轻松获取session_value 可以重写encode方法
+
+> csrf问题
+	>> 全局
+		>>> django 采用csrfmiddleware进行csrf的全局管理，只需注释即可
+	>> 局部
+		>>> csrf_protect装饰器进行局部保护，全部不开也会csrf验证
+		@method_decorator(csrf_protect, name='dispatch')用于View类的装饰
+		csrf_exempt 进行csrf局部豁免
+
+

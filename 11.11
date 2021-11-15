@@ -205,3 +205,38 @@ debian-install-redis.sh
 apt install redis-server
 ------------------------------------------------------------
 ************************************************************
+
+centos安装emacs
+************************************************************
+centos-install-emacs.sh
+------------------------------------------------------------
+#!/bin/bash
+
+echo "install emacs ..."
+yum install wget gcc ncurses-devel clang git -y
+
+if [ ! -d "/opt/software" ]
+  then
+    mkdir -p /opt/software
+fi
+
+cd /opt/software
+
+wget https://mirrors.sjtug.sjtu.edu.cn/gnu/emacs/emacs-26.3.tar.xz
+xz -d emacs-26.3.tar.xz  # 解压
+tar -xvf emacs-26.3.tar
+cd emacs-26.3  # 进入安装目录
+# 配置参数 提示什么就加上什么参数
+./configure --with-x-toolkit=no  --with-gif=no --with-tiff=no  --with-gnutls=no  --with-jpeg=no  --with-png=no --with-xpm==no
+make && make install
+# 安装完毕
+# 加载常用配置
+mkdir settings
+git clone https://github.com/abrance/emacs_set.git settings
+cd settings
+mkdir -p ~/.emacs.d/elpa
+cp --force init.el ~/.emacs.d
+cp -r --force --parents elpa ~/.emacs.d
+echo "install end"
+------------------------------------------------------------
+************************************************************
