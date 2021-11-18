@@ -1,0 +1,107 @@
+TODO
+> 通过这篇文章看到的是iframe不可以
+> 自 Chrome 80 版本起，Chrome 更新了 SameSite 属性的默认值，由 None 改成了 Lax，主要用于限制第三方 Cookie，减少安全风险和用户追踪。同时，基于 Chromium 的 Edge 浏览器，在对应版本也会有此限制
+
+海恩-oc整合jumpserver需求
+> 需求文档https://www.yuque.com/pv8lqa/dc1tz9/tkqbbc#evHp3
+> 1. 创建资产信息
+> 2. 连接用户资产
+> 3. 由工程师来解决用户的资产问题
+> 4. 工单处理完成
+> 5. 保存操作录屏文件到OC
+> 6. 保存成功后清除所有的数据（包括资产）
+
+   OC                        jumpserver                用户资产
+
+
+
+ +---------+
+ | 异常    |
+ |         |
+ +----+----+
+      |
+      v
+
+ +---------+
+ | 工单生成|
+ |         |
+ +----+----+
+      |
+      v
+
+ +---------+               +------------+
+ | 连接资产+------------>  |创建资产信息|
+ +---------+               +-----+------+
+                                 |
+                                 v
+                           +-----+------+              +--------------+
+                           |连接用户资产+----------->  |工程师修复异常|
+                           +------------+              +------+-------+
+                                                              |
+                                                              |
+                                                              |
+                                                              |
+ +---------+  <-----------------------------------------------+
+ | 工单处理|
+ |  完成   |
+ +----+----+               +-------------+
+      |                    |上传所有操作 |
+      +------------------> |录屏数据到oc |
+                           +------+------+
+                                  |
+                                  v
++----------+               +------+------+
+|用户评价  |  <----------+ | 清除所有数据|
+|   工单   |               |             |
++----------+               +-------------+
+
+
+
+> django2.1后直接设置SESSION_COOKIE_SAMESITE = 'None'  SESSION_COOKIE_SECURE = True即可应对第三方cookie跨域问题
+
+> jumpserver配置ssl
+	>> https://www.yunweiku.com/thread-158646-1-1.html                     jp配置https
+	>> https://www.cnblogs.com/gordon0918/p/5363466.html                   openssl指令
+	>> openssl rsa -in server.key -passin pass:123456 -out miss_server.key 生成不需要口令的密钥
+> django 配置ssl
+
+server.key 123456
+
+> pip 导出requirements.txt
+	>> pip freeze > requirements.txt
+
+> debian部署jumpserver
+
+> 堡垒机
+	>> https://www.aikaiyuan.com/8811.html                        web ssh 实现
+	>> https://blog.csdn.net/weixin_34250434/article/details/92516027     几款常用的开源堡垒机系统
+	>> 运维堡垒机的理念起源于跳板机，那么跳板机的弱势在哪里
+		 >>>
+		 理念一：唯有控制才能真正解决问题
+		 理念二：系统账号无法确认用户身份
+		 理念三：人为操作难免会出问题
+		 于是产生运维堡垒机，运维堡垒机具有对运维人员的身份认证、对运维操作的访问控制和审计等功能
+	>> 主要功能：基于web的ssh功能, 资产系统，运维系统，其他用户权限分配系统，以及日志回放功能，需要devops自己去开发，结合gateone，保证让你玩的爽歪歪，至于怎么去开发这个堡垒机功能的系统
+	
+> jumpserver 的实现（一个堡垒机系统的实现）
+	>> web 终端的实现
+	>> 资产系统
+	>> 用户权限
+	>> 日志回放
+
+> python3卸载
+	> apt-get remove python3 && whereis python3 | xargs rm -rf 如果不移除连接，后续可能出问题（virtualenvwrapper一直报错）
+
+> 大坑：不要轻易whereis xxx | xargs rm -fr 比如删掉了python3内置的依赖会失去链接
+
+
+jumpserver接入到oc中的实现
+> 已解决
+	>> jumpserver 整体的架构包括 core luna lina koko lion 五个模块，nginx将五个模块连接，通过core提供向外服务接口
+	>> core 中关于验权的机制
+> 未解决
+	>> jumpserver 除了core之外的验权机制
+	>> jumpserver 正常运行所需要到的模块涉及的知识 如：nginx django celery beat daphne 等
+	>> jumpserver 相关的所有日志和数据的获取方法，便于排查bug
+	>> jumpserver 资产管理、连接资产等业务逻辑
+> 11.25汇报情况

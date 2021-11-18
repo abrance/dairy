@@ -1,0 +1,18 @@
+
+
+自定义systemd服务
+> https://www.cnblogs.com/jhxxb/p/10654554.html
+ExecStart：定义启动进程时执行的命令
+上面的例子中，启动 sshd 执行的命令是 /usr/sbin/sshd -D $OPTIONS，其中的变量 $OPTIONS 就来自 EnvironmentFile 字段指定的环境参数文件。类似的，还有如下字段：
+ExecReload：重启服务时执行的命令
+ExecStop：停止服务时执行的命令
+ExecStartPre：启动服务之前执行的命令
+ExecStartPost：启动服务之后执行的命令
+ExecStopPost：停止服务之后执行的命令
+
+
+jumpserver nginx出现permission denied，其实是selinux导致的
+setenforce 0 即可
+
+dpdk
+envoy

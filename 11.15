@@ -1,3 +1,4 @@
+
 jumpserver cookie形式
 > {'csrftoken': 'Y6jPqcPYgvwar6W1a67QmOJJwqtPXnuAB1LUHtlms4MmQ03xbcRDvK3aq5IiLEIN', 'sessionid': 'jxnk4mtjfe38wyrs2p11neevsefeu9bo', 'jms_current_org': '%7B%22id%22%3A%22DEFAULT%22%2C%22name%22%3A%22DEFAULT%22%7D', 'X-JMS-ORG': 'DEFAULT', 'jms_current_role': '146', 'django_language': 'zh-hans'}
 cookie: {'jms_current_org': '%7B%22id%22%3A%22DEFAULT%22%2C%22name%22%3A%22DEFAULT%22%7D', 'X-JMS-ORG': 'DEFAULT', 'jms_current_role': '146', 'django_language': 'zh-hans', 'csrftoken': 'Y6jPqcPYgvwar6W1a67QmOJJwqtPXnuAB1LUHtlms4MmQ03xbcRDvK3aq5IiLEIN', 'sessionid': None, 'sidebarStatus': '1'}
