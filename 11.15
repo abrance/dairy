@@ -37,3 +37,4 @@ session
 		>>> csrf_protect装饰器进行局部保护，全部不开也会csrf验证
 		@method_decorator(csrf_protect, name='dispatch')用于View类的装饰
 		csrf_exempt 进行csrf局部豁免
+

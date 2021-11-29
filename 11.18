@@ -12,7 +12,7 @@ ExecStopPost：停止服务之后执行的命令
 
 
 jumpserver nginx出现permission denied，其实是selinux导致的
-setenforce 0 即可
+> setenforce 0 即可
 
-dpdk
-envoy
+jumpserver 常见错误
+> jms.log中 pid 被lock ，查看进程号，杀死并删除pid文件

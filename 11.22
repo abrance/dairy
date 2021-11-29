@@ -1,0 +1,114 @@
+nginx 配置ssl
+> https://www.cnblogs.com/dream-bccb/p/5373302.html
+************************************************************
+create-nginx-ssl.sh
+------------------------------------------------------------
+#!/bin/bash
+
+# 查看nginx是否支持ssl， http_ssl关键字
+nginx -v  
+mkdir -p /etc/nginx/ca/server
+# 生成server keyjumpserver 常见错误
+> jms.log中 pid 被lock ，查看进程号，杀死并删除pid文件
+nginx设置 x-frame-option sameorigin   中间件注释x-frame
+csrf_token不可以跨域，需要注释中间件
+openssl genrsa -des3 -out ssl.key 1024
+# 生成不需要密码的key，有密码的重启nginx需要输入密码
+openssl rsa -in ssl.key -passin pass:123456 -out miss_ssl.key
+rm -f ssl.key && mv miss_ssl.key ssl.key
+# 生成证书请求文件
+openssl req -new -key ssl.key -out ssl.csr
+# 生成证书文件
+openssl x509 -req -days 365 -in ssl.csr -signkey ssl.key -out ssl.crt
+------------------------------------------------------------
+# 修改nginx配置
+------------------------------------------------------------
+server {
+		listen 80;
+		# 加上
+		listen 443 ssl;
+		ssl_certificate /etc/nginx/ca/server/ssl.crt;
+		ssl_certificate_key /etc/nginx/ca/server/ssl.key;
+------------------------------------------------------------
+************************************************************
+
+jumpserver 常见错误
+> jms.log中 pid 被lock ，查看进程号，杀死并删除pid文件
+
+> 解决https部署问题
+	>> 生成证书，修改nginx设置
+> 解决samesite 只能为 strict和lax问题
+	>> 注释源码 HttpResponseBase (django.http.response.py) 大概下面两行
+	            if samesite.lower() not in ('lax', 'none', 'strict'):
+                raise ValueError('samesite must be "lax", "none", or "strict".')
+> 解决x-frame问题
+	>> 注释掉中间件
+> 解决csrf 不可以跨域问题
+	>> 模板中有许多csrf验证，注释了几个主要的还是不能实现登录，不过luna的端口可以访问了
+
+jumpserver
+> 一阶段：针对海恩2.0 web终端需求，jumpserver整合进去已经有了解决方案和一阶段的成果。后面需要进行评估，需要修改django源码，还是对jumpserver的鉴权机制进行重写。
+	>> 选择1：修改django源码：可以暂时解决鉴权问题，但是要么部署起来容易出问题，要么部署jumpserver有点麻烦。
+		>>> django源码修改脚本进行开发（需要2-3天）
+		>>> 部署脚本、部署文档开发（需要4-5天）
+	>> 选择2：鉴权机制进行重写： 可以一劳永逸解决问题，也可以轻松定位各种问题并提供解决方案。但是需要开发一段时间。
+		>>> jumpserver 的鉴权机制进行重写（需要10天）
+		>>> 部署脚本、部署文档开发（需要4-5天）
+> 二阶段：对jumpserver的业务逻辑进行研究并落实文档，如果以后出现紧急的bug，需要能快速定位bug，并加以解决。
+> 三阶段：对jumpserver还不完善的部分进行优化，比如内存的管理，整个系统的稳定性。提高这个组件的性能、可用性、可移植性。
+
+systemd
+> https://www.cnblogs.com/jhxxb/p/10654554.html
+> service
+	ExecStart：定义启动进程时执行的命令
+	上面的例子中，启动 sshd 执行的命令是 /usr/sbin/sshd -D $OPTIONS，其中的变量 $OPTIONS 就来自 EnvironmentFile 字段指定的环境参数文件。类似的，还有如下字段：
+	ExecReload：重启服务时执行的命令
+	ExecStop：停止服务时执行的命令
+	ExecStartPre：启动服务之前执行的命令
+	ExecStartPost：启动服务之后执行的命令
+	ExecStopPost：停止服务之后执行的命令
+	User: 以什么用户执行命令
+************************************************************
+jp-core.service
+------------------------------------------------------------
+[Unit]
+Description=jp-core Service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/jumpserver/jumpserver
+ExecStart=/root/py_vm/jp/bin/python3 /opt/jumpserver/jumpserver/jms start -d
+ExecReload=/root/py_vm/jp/bin/python3 /opt/jumpserver/jumpserver/jms restart -d
+ExecStop=/root/py_vm/jp/bin/python3 /opt/jumpserver/jumpserver/jms stop
+Restart=on-failure
+StandardOutput=null
+LimitCORE=infinity
+LimitNOFILE=500000
+LimitNPROC=500000
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
+------------------------------------------------------------
+************************************************************
+
+
+dpdk
+> 解决多核处理器高性能数据包处理问题
+	>> 多核处理器出现的问题：x86架构的处理器拥有多核，一般情况下，将所有的核心抽象，提供一个统一的接口，操作系统将所有类型的任务通过这个接口交给处理器。当网卡接收到数据，通过DMA技术放在内存，等待CPU处理，内核发出中断指令，一个CPU线程把正在执行的任务中断，保存上下文（这个过程占用大量缓存和内存），然后对数据包进行解包，交给内核。如果接收了大量的网络包，CPU的计算能力将成为瓶颈（因为不停切换上下文）。
+	>> dpdk解决方案
+		>>> HugePage
+		>>> CPU绑定
+		>>> 行对齐
+		>>> 预读取
+		...
+	>> 怎么使用
+		>>> C语言调用三个主要的lib
+	>> 展望
+		>>> 当网速达到万兆以上，将提供更强大的数据包处理能力
+	>> 产品
+		>>> 网络包处理中心，负责对所有的网络包进行分类打标签等处理
+
+
+	

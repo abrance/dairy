@@ -1,0 +1,49 @@
+
+
+w
+> 显示用户登录名、终端标志、星期几登录和具体登录时间、闲置时间、用户正在执行的程序、占用CPU时间、系统的运行时间和平均负载
+whoami
+> 显示用户、终端、时间和来源
+tty
+> 查看终端名
+
+xterm
+>
+
+
+paramiko
+> invoke_shell
+	>> paramiko模块exec_command()函数是将服务器执行完的结果一次性返回给你；
+  >> invoke_shell()函数类似shell终端，可以将执行结果分批次返回，看到任务的执行情况，不会因为执行一个很长的脚本而不知道是否执行成功
+	
+tornado
+> 退出tornado
+************************************************************
+main.py
+------------------------------------------------------------
+def run():
+    options.parse_command_line()
+    [i.setFormatter(LogFormatter()) for i in logging.getLogger().handlers]
+    http_server = tornado.httpserver.HTTPServer(app)
+    http_server.listen(3000)
+    logging.info("server start")
+    try:
+        tornado.ioloop.IOLoop.current().start()
+    except KeyboardInterrupt:
+        print("server stop")
+				# 这个对象可以停止服务，不然子进程不随着父进程退出而退出
+        http_server.stop()
+        sys.exit(-1)
+------------------------------------------------------------
+************************************************************
+
+> 同步和异步
+	>> 同步IO操作导致请求进程阻塞，知道io完成；异步IO不导致请求进程阻塞
+
+TODO
+> 10041这台机器配置子域名和证书试试是否还需要验证
+> crt key
+
+paramiko 文档
+> https://docs.paramiko.org/en/stable/
+
