@@ -6,6 +6,45 @@
 	>> 路由转发
 		>>> 进行一次https的转发
 
+  >> 如何访问k8s api
+		>>> k8s通过kube-apiserver进程提供服务，该进程运行在单个k8s-master节点上。默认有两个端口
+		  >>>> 本地端口
+				该端口用于接收HTTP请求；
+				该端口默认值为8080，可以通过API Server的启动参数“--insecure-port”的值来修改默认值；
+				默认的IP地址为“localhost”，可以通过启动参数“--insecure-bind-address”的值来修改该IP地址；
+				非认证或授权的HTTP请求通过该端口访问API Server
+			>>>> 安全端口
+				该端口默认值为6443，可通过启动参数“--secure-port”的值来修改默认值；
+				默认IP地址为非本地（Non-Localhost）网络端口，通过启动参数“--bind-address”设置该值；
+				该端口用于接收HTTPS请求；
+				用于基于Tocken文件或客户端证书及HTTP Base的认证；
+				用于基于策略的授权；
+				默认不启动HTTPS安全访问控制
+
+
+> Devops
+	>> dev 指开发者，ops指运维
+	>> 概念：在过去，开发团队的任务是创建应用并交付给运维团队，然后运维团队部署应用并使它运行，但是现在，公司都意识到，让同一个团队参与应用的开发、部署 、运维的整个生命周期更好 这意味着开发者 QA 和运维团队彼此之间的合作 需要贯穿整个流程，这种实践被称为 DevOps
+	>> 优点：开发者更 在生产环境中运行应用 能够使他们对用 的需求和问题，以及运维团队维护应用所面临的困难，有一个更好的理解。应用程序开发者现在更趋向于将应用尽快地发布上线，通过收集用户的反馈对应用做进一步开发
+	>>
+
+
+ob-J方案会议
+> 等福林回后，叫上张总一起讨论怎么通配域名
+
+> 通过安装证书的方式在edge chrome firefox 浏览器中不可行，已经验证
+
+> todo
+	>> apiserver 
+		>>> https://docs.solo.io/gloo-edge/latest/introduction/architecture/concepts/#gateways
+		>>> https://www.envoyproxy.io/ ，主要看1.17.4版的文档
+		>>> https://github.com/kubernetes/apiextensions-apiserver ，K8S API SERVER的 GITHUB
+	>> nginx配置放入git部署文档中
+
+> 自建ca和自签证书
+	>> https://www.cnblogs.com/loleina/p/8418111.html
+	>> 中间 serial 需要执行 sh -c 'echo "01">serial'
+
 > apiserver
 	>> 是什么： 提供k8s 各类资源对象（pod，RC，Service等）的crud及watch等http rest接口，是整个系统的数据总线和数据中心。
 	>> 功能
@@ -60,35 +99,6 @@ capabilities  性能
                                 └──┬───────────┘ │
                                    └─────────────┘
 ------------------------------------------------------------
-  >> 如何访问k8s api
-		>>> k8s通过kube-apiserver进程提供服务，该进程运行在单个k8s-master节点上。默认有两个端口
-		  >>>> 本地端口
-				该端口用于接收HTTP请求；
-				该端口默认值为8080，可以通过API Server的启动参数“--insecure-port”的值来修改默认值；
-				默认的IP地址为“localhost”，可以通过启动参数“--insecure-bind-address”的值来修改该IP地址；
-				非认证或授权的HTTP请求通过该端口访问API Server
-			>>>> 安全端口
-				该端口默认值为6443，可通过启动参数“--secure-port”的值来修改默认值；
-				默认IP地址为非本地（Non-Localhost）网络端口，通过启动参数“--bind-address”设置该值；
-				该端口用于接收HTTPS请求；
-				用于基于Tocken文件或客户端证书及HTTP Base的认证；
-				用于基于策略的授权；
-				默认不启动HTTPS安全访问控制
 
 
-> Devops
-	>> dev 指开发者，ops指运维
-	>> 概念：在过去，开发团队的任务是创建应用并交付给运维团队，然后运维团队部署应用并使它运行，但是现在，公司都意识到，让同一个团队参与应用的开发、部署 、运维的整个生命周期更好 这意味着开发者 QA 和运维团队彼此之间的合作 需要贯穿整个流程，这种实践被称为 DevOps
-	>> 优点：开发者更 在生产环境中运行应用 能够使他们对用 的需求和问题，以及运维团队维护应用所面临的困难，有一个更好的理解。应用程序开发者现在更趋向于将应用尽快地发布上线，通过收集用户的反馈对应用做进一步开发
-	>>
-
-
-ob-J方案会议
-> 开会人员：吴琼   李明 张总 福林 邓天翔 钟家乐
-
-> 通过安装证书的方式在edge chrome firefox 浏览器中不可行，已经验证
-
-> todo
-	> https://docs.solo.io/gloo-edge/latest/introduction/architecture/concepts/#gateways
-	> https://www.envoyproxy.io/ ，主要看1.17.4版的文档
-	> https://github.com/kubernetes/apiextensions-apiserver ，K8S API SERVER的 GITHUB
+> 扩展apiserver    https://mp.weixin.qq.com/s/3daWIn5uY5rRx6zH3veC2A
