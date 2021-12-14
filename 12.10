@@ -1,0 +1,57 @@
+> 接口文档 (jumpserver提供给OC)
+	>> 都是restful接口 如接口students/
+	新增为post
+		data 为新增信息
+	查询为get
+		查单条 students/{student_id}/
+		查多条 students/
+			data可以加过滤条件
+	删除为delete
+		删单条 students/{student_id}
+		删全部 students/
+	修改为 put/patch
+		单条   students/{student_id}/
+			patch data 为需要修改的字段
+
+	>> 接口文档适合写在evernote
+
+> 新增数据先后顺序
+	>> adminuser
+	>> asset
+	>> systemuser
+	>> permission
+
+> 清除数据先后顺序
+	>> permission
+	>> systemuser
+	>> asset
+	>> adminuser
+
+
+
+django 数据json化
+************************************************************
+------------------------------------------------------------
+from django.core.serializers.json import DjangoJSONEncoder
+data = json.dumps(data, cls=DjangoJSONEncoder)
+------------------------------------------------------------
+************************************************************
+
+汇报
+> 成果
+	>> jumpserver core luna koko已经支持token方式进行鉴权
+	>> linux资产方式已经嵌入到OC中，并可以正常进行连接资产
+	>> 已完成提供给OC需要的接口
+	>> 已经完成上面接口的单元测试
+	>> 上述接口文档完成
+> 下周计划
+	>> 配合张工进行研发工作
+	>> 继续跟进jumpserver的工作
+
+git 推送一个已存在的仓库到新的远程仓库
+> git remote add new-pro $url
+> git push -u new-pro --all
+
+{'assets': [], 'nodes': [], 'actions': ['all', 'connect', 'updownload', 'upload_file', 'download_file'], 'is_active': Tr\
+ue, 'date_start': '2021-12-13T00:55:52.803Z', 'date_expired': '2121-11-19T00:55:52.803Z', 'name': 'pri2', 'system_users'\
+: ['b55d00ed-eb05-4b1c-989f-fd00f60d0154'], 'users': ['f84365ea-b85c-4fed-a513-68fe5042d055']}

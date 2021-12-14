@@ -1,0 +1,52 @@
+git 拉取特定分支
+>git clone -b dev https://xxx.git 
+
+pycharm
+> C-F11 新增一个书签（更多）
+
+AssetSerializer
+> 资产序列化器（新增资产api需要的字段）
+
+AdminUserViewSet
+> 特权用户序列化器（资产中的用户）
+
+drf打印日志调试
+> 如新增系统用户接口，在View里面重写create方法写logger.info，最后 return super()... 即可
+
+新增资产管理用户
+> name
+> adminuser
+新增资产必传字段
+> ip hostname platform create_by admin_user
+> assets_asset
+新增资产系统用户
+> system-users
+新增资产授权管理
+> name actions(enum:255权限) system_users:[str(uuid)] assets:[str(uuid)] nodes:[str(uuid)] date_expired:str(datetime)
+> asset-permission
+
+
+汇报
+> 成果
+	>> jumpserver-core 提供前端luna的接口已支持token方式获取数据
+		>>> userprofile 等接口
+	>> 涉及业务方面的API已经支持token方式传递数据
+		>>>接口：
+			获取token
+			新增资产管理用户
+			新增资产
+			新增资产系统用户
+			新增资产授权管理
+	>> 已经完成上面API的测试
+> 下周计划
+	>> 完成剩余的接口
+		>>> 记录对资产的操作并推送到OC
+		>>> 完成后清理后端数据
+	>> 完善部署脚本
+	>> 完善文档
+> 需要配合
+	>> 需要前端重写luna请求逻辑
+	>> 需要前端写OC进行请求业务API的逻辑
+> 展望
+	>> 改为ssl进行交互
+	>> 自定义鉴权

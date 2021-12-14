@@ -1,0 +1,28 @@
+TODO
+> API
+	>> 推送录屏数据到OC : /opt/jumpserver/jumpserver/data/media/replay/2021-12-02/*.gz
+	>> 清除数据的API
+		>>> 清除db中的数据
+		>>> 清除日志和data数据
+
+> drf 框架可重写的方法
+	>> 看看APIView类的方法即可，比如initial check_permission ，这些方法有利于开发调试
+
+> 清除数据先后顺序
+	>> permission
+	>> systemuser
+	>> asset
+	>> adminuser
+
+> go初始化
+	>> https://www.jianshu.com/p/712ac21fa230
+	>> https://www.jianshu.com/p/47aef1ff8718
+	>> go mod init module_name 在当前文件夹下初始化一个新的 module，创建 go.mod 文件
+	>> go env -w GOPROXY=https://goproxy.cn,direct    配置代理，不然go get很慢
+	>> go env查看环境变量
+	>> go.mod 文件会保存依赖信息
+
+
+ssl机制分析
+> https://blog.csdn.net/qq_38265137/article/details/90112705
+> https://blog.csdn.net/cjf1002361126/article/details/70232721

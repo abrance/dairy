@@ -1,0 +1,91 @@
+测试汇报
+机器: https://192.192.100.41/ https://119.91.145.27/
+测试预期结果：两台机器用同一证书部署了服务，访问后浏览器没有因为用的同一证书和同一签发机构而出错。
+测试结果：如预期，是正常的。
+
+ssl机制
+> https://www.cnblogs.com/dinglin1/p/9279831.html
+> 机制：ssl握手第一步是服务端向客户端发送“包含公钥的证书文件”，浏览器把证书文件按照特定算法加载出几个字段：分别有签发CA、颁发给谁、有效时间、算法、公钥等，不同的ip地址的服务使用用一证书，其实只是使用证书的公钥进行加密（可能并不会对证书本身进行校验）
+
+git 领先版本不能提交问题
+> fatal: refusing to merge unrelated histories
+	>> git pull --allow-unrelated-histories
+	>> 直接merge :wq 后就 git push 成功了
+
+迁移已有的git仓库
+> 删除本地仓库下的.git文件，远程建立仓库（不要创建readme等任何文件），复制命令去目录下执行即可
+
+curl -X POST http://localhost/api/v1/authentication/auth/   -H 'Content-Type: application/json'   -d '{"username": "admin", "password": "admin"}'
+
+> 如果传入的是token设置backend为tokenbackend
+
+drf 权限设置
+> 全局设置
+	>> DEFAULT_AUTHENTICATION_CLASSES
+> 基于单个视图设置
+	>> authentication_classes = (SessionAuthentication, BasicAuthentication)
+
+> backend 认证后端
+	>> AUTHENTICATION_BACKENDS
+		>>> django 设置认证后端
+		>>> 注意，如果不调用 django.contrib.auth.authenticate. 那么setting. AUTHENTICATION_BACKENDS根本用不上，就不会被调用
+		>>> 这个后端可以自定义,  需要实现 authenticate(返回user对象) 和 get_user 两个接口
+		>>> 可以选择继承内置的backend. BaseAuthentication BasicAuthentication SessionAuthentication TokenAuthentication(这个只验证Authorization字段)
+		>>> 继承TokenAuthentication后类中设置model = xxx可以自定义token表
+
+	>> DEFAULT_AUTHENTICATION_CLASSES
+		>>> drf 的认证后端
+	drf认证和权限功能https://blog.csdn.net/weixin_30765505/article/details/96505891?spm=1001.2101.3001.6650.10&utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-10.highlightwordscore&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-10.highlightwordscore
+		>>> request.user
+			认证通过：　AbstractUser对象
+			未认证通过： AnonymousUser对象
+			request.user.is_authenticated(): 是否认证/登录通过
+
+> AuthMixin API认证mixin
+
+> 登录接口，要取消所有的认证与权限规则，也就是要做局部禁用操作（空配置）
+    authentication_classes = []
+    permission_classes = []
+
+
+> serializer 使用
+	>> serializer 输出了什么？https://zhuanlan.zhihu.com/p/274822148
+
+/api/checklogin
+> 应该被取缔了
+
+setup.py
+> https://zhuanlan.zhihu.com/p/276461821
+
+pycharm 中文指南
+> https://pycharm.iswbm.com/
+
+python虚拟环境注册服务
+
+TODO
+怎么连接koko的
+
+flower自动退出
+> 查看flower.log 发现是端口占用 lsof -i:5555  ps -elf| grep python或celery 杀掉那些进程，即可
+
+> TODO自动填充资产信息新增资产
+	>> 
+
+assets_asset                                 资产表
+> platform_id         assets_platform        资产平台 win/linux ?
+> admin_user_id       assets_adminuser       资产管理用户
+
+assets_systemuser                            资产中的用户表
+
+assets_systemuser_assets                     资产用户表和资产 关联表
+
+assets_node                                  资产节点表
+
+assets_systemctluser_nodes                   资产用户和资产节点 关联表
+
+
+二次开发方案
+> https://blog.csdn.net/shyflea/article/details/105004430
+
+drf使用router.register
+> https://segmentfault.com/a/1190000040089774

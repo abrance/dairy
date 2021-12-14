@@ -1,0 +1,50 @@
+NAS安装
+> https://post.smzdm.com/p/aqx07xmk/
+> https://post.smzdm.com/p/ar0v2on7/
+> 文件资源在百度网盘我的资源里有
+
+jumpserver找李明聊方案
+
+sed
+> sed option scrip file 这样的形式
+	>> -e script将script加入到已有的命令中
+	>> -f file   将file中的命令添加到已有命令中
+	>> -n        不产生命令输出，使用print进行输出
+
+经典shell
+> https://blog.csdn.net/csdnyanglei/article/details/82219931
+
+k8s安装
+************************************************************
+/etc/yum.repos.d/kubernetes.repo
+------------------------------------------------------------
+[kubernetes]
+name=Kubernetes Respository
+baseurl=http://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64/
+enabled=1
+gpgcheck=0
+------------------------------------------------------------
+install-k8s.sh
+------------------------------------------------------------
+#!/bin/bash
+yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
+------------------------------------------------------------
+************************************************************
+
+curl -k -H 'Authorization: Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJrdWJlLXN5c3RlbSIsImty1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiO33iJqdW1wc2VydmVyLWFkbWluLXRva2VuLXJwZHZ0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6Imp1bXBzZXJ2ZXItYWRtaW4iLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiJiMmM1Y2IzNi1mYzA5LTExZWItYmNiZC1mYTE2M2U4MTFiYzUiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6a3ViZS1zeXN0ZW06anVtcHNlcnZlci1hZG1pbiJ9.B9nTlT9yAuWEvDSEfqNwEVNUYmOg1bHSyj81B9zdmw1gV08m9RpQvzaHn3cyNrhLkGy9EQ3A38Kdl73Skt5ngeTUQzRDbgQQPWKEoJPJFLXamp9anEToPueDA9N6Ql8QzkOt0HhhFWQas7-dbygSGOFS8PNbG9iMF_f1D5sJCEL1rAX5ZKlGETW4zIbNaYSnBx4-SqB1SCQhXskqIP0fp7F2az0RUwK3WMtP3RdCxJKioolBHU_CEEWfK8S4RRhmufZO649xBaiyX_vc7dS6DD7fw48sNMX99qD56O2f4LLg9DcHPIhE8RUaB5YyW1xbOt3itN5poYi8uZmQiSsiR2nA'  https://kmaster-vapi:8443/healthz
+ok
+
+jumpserver 二次开发
+> https://blog.csdn.net/shyflea/article/details/105004430
+> https://www.cnblogs.com/mageguoshi/p/5755120.html
+> https://www.cnblogs.com/mageguoshi/p/5755154.html
+
+
+mac认证
+> mac认证https://zhuanlan.zhihu.com/p/77105902
+加盐
+> mac认证时加盐
+ssl双向认证
+> ssl 双向认证怎么做 https://www.jianshu.com/p/2b2d1f511959
+
+

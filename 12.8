@@ -1,0 +1,124 @@
+> 终端会话命令
+	>> /terminal/sessions/
+
+> djangorestframework-bulk
+	>> 批量
+	# 批量查询
+	GET    http://127.0.0.1/students/
+	# 创建单个对象
+	POST  	http://127.0.0.1/students/
+	body   {"field":"value","field2":"value2"}    发送字典格式的json数据
+	# 创建多个对象
+	POST 	http://127.0.0.1/students/
+	body	[{"field":"value","field2":"value2"}]   发送列表格式的json数据
+	# 更新多个对象（需要提供所有字段的值）
+	PUT 	http://127.0.0.1/students/
+	body	[{"field":"value","field2":"value2"}]   发送列表格式的json数据
+	# 局部更新多个对象（不需要提供所有字段的值）
+	PATCH 	http://127.0.0.1/students/
+	body 	[{"field":"value"}]                     发送列表格式的json数据
+	# 删除多个对象
+	DELETE   http://127.0.0.1/students/
+
+> 谁发送的post请求
+/api/v1/authentication/connection-token/?token=%s
+
+
+> 生成private token
+************************************************************
+create-privatetoken.sh
+------------------------------------------------------------
+cd /opt/jumpserver/apps
+python manage.py shell
+from users.models import User
+u = User.objects.get(username='admin')
+# 如果没有就生成token
+u.create_private_token()
+# 已经存在就获取token
+u.private_token
+------------------------------------------------------------
+************************************************************
+
+> koko 停止运行
+	>> ./koko -s stop
+
+> koko 设置token字段
+
+> 推送录像
+	>> 返回字段加一个工程师id
+	
+POST /api/v1/terminal/commands/
+POST /api/v1/terminal/sessions/fb819486-4ae7-48c2-bdee-3c8e3f5c404c/replay/
+PATCH /api/v1/terminal/sessions/fb819486-4ae7-48c2-bdee-3c8e3f5c404c/
+
+
+> session
+	>> 每次打开一个资产产生一个session
+> command
+	>> 一个session有多个command 包含多种信息
+
+> 推送已解决
+	>> 只推送session请求即可
+	>> json压缩文件不删除，OC需要的时候可以随时去取
+
+> drf 二次开发接口
+	>> 底层接口
+		>>> get()
+		>>> post()
+
+	>> 顶层接口
+		>>>查询可用接口 rest_framework/mixins.py 查看下面几个mixin类的定义即可
+		>>> https://blog.csdn.net/l_vip/article/details/79142105
+		>>> CreateModelMixin
+			>>>> create
+		>>> ListModelMixin
+			>>>> list
+		>>> RetrieveModelMixin
+			>>>> retrieve
+		>>> UpdateModelMixin 处理 PUT/PATCH 请求， PATCH可以部分更新
+			>>>> update
+		>>> DestroyModelMixin
+			>>>> delete
+			
+> drf patch接口进行二次开发
+
+************************************************************
+------------------------------------------------------------
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+
+        # 新增的推送 逻辑 用户关闭链接会 PATCH 请求此接口两次，第一次是发送结束标记和结束时间，第二次发送是否有录像文件；第二次发送时进行推送。
+        # TODO 如何保证推送可靠
+        if request.data.get("has_replay"):
+            serializer = self.get_serializer(instance)
+            logger.info("\nserializer data: {}\n{}".format(serializer.data, type(serializer.data)))
+            data = []
+
+            dc = dict(serializer.data)
+            dc.update(dict(request.data))
+
+            data.append(dc)
+            url = "https://haien.ouryun.net/ocserver/api/v1/history-replay/receive"
+
+            from django.core.serializers.json import DjangoJSONEncoder
+            data = json.dumps(data, cls=DjangoJSONEncoder)
+            logger.info("\ndata: {}\n".format(data))
+            r = requests.post(url, data=data)
+            logger.info("\ndata: {}\n".format(r.status_code))
+            logger.info("\ndata: {}\n".format(r.json()))
+            logger.info("\ndata: {}\n".format(request.data))
+
+				# 原本的逻辑
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        if getattr(instance, '_prefetched_objects_cache', None):
+            # If 'prefetch_related' has been applied to a queryset, we need to
+            # forcibly invalidate the prefetch cache on the instance.
+            instance._prefetched_objects_cache = {}
+
+        return Response(serializer.data)
+------------------------------------------------------------
+************************************************************
