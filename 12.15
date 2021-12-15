@@ -1,0 +1,73 @@
+
+> k8s客户端kubectl
+	>>
+
+> Kubelet
+	>> Kubelet是工作节点上的主要服务，定期从kube-apiserver组件接收新的或修改的Pod规范，并确保Pod及其容器在期望规范下运行。同时该组件作为工作节点的监控组件，向kube-apiserver汇报主机的运行状况
+
+kubeadm init \
+  --apiserver-advertise-address=119.91.145.27 \
+  --image-repository registry.aliyuncs.com/google_containers \
+  --kubernetes-version v1.14.2 \
+  --service-cidr=10.1.0.0/16 \
+  --pod-network-cidr=10.244.0.0/16\
+  --ignore-preflight-errors=NumCPU
+
+kubeadm init --kubernetes-version=v1.10.0 --pod-network-cidr=10.244.0.0/16
+
+k8s.gcr.io/kube-apiserver:v1.14.10
+k8s.gcr.io/kube-controller-manager:v1.14.10
+k8s.gcr.io/kube-scheduler:v1.14.10
+k8s.gcr.io/kube-proxy:v1.14.10
+k8s.gcr.io/pause:3.1
+k8s.gcr.io/etcd:3.3.10
+k8s.gcr.io/coredns:1.3.1
+
+docker 设置容器自动启动和关闭
+> docker update --restart=always <CONTAINER ID>   设置自动启动
+> docker update --restart=no <CONTAINER ID>       关闭自动启动
+
+
+> 部署k8s
+	>> https://blog.csdn.net/curry10086/article/details/107579113
+	>> kubeadm init --kubernetes-version=v1.14.10 --pod-network-cidr=10.244.0.0/16 --service-cidr=10.96.0.0/12 --ignore-preflight-errors=Swap
+	>> 脚本 https://www.cnblogs.com/dream397/p/13814166.html
+
+	>> 初始化完成后系统返回一串命令, 需要手动执行, 这些命令用于一些k8s默认配置:
+		mkdir -p $HOME/.kube
+		sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+		sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+	>> flannel.yml
+		>>> kubectl apply -f kube-flannel.yml    安装flannel网络插件
+
+> kubeadm token list 列出token，加入集群
+
+
+> go mod 命令
+	>> https://www.jianshu.com/p/47aef1ff8718
+	在当前文件夹下初始化一个新的 module，创建 go.mod 文件； go mod init name
+	拉取缺少的模块，移除不用的模块 ： go mod tidy
+	将依赖复制到 vendor 下 : go mod vendor
+	下载依赖 : go mod download
+	检验依赖: go mod verify
+	显示模块依赖图: go mod graph
+	解释为什么需要依赖: go mod why
+	编辑 go.mod 文件: go eidt
+	查看命令列表: go mod
+	清空缓存：go clean --modcache
+	查看命令帮助文档: go help mod <command>
+	go env -w GOPROXY=https://goproxy.cn,direct
+
+	go mod 命令解析
+	1.go mod init
+	初始化一个go.mod文件到当前目录， 实际上是创建了一个以当前目录为模块的mod。
+	2.go mod tidy
+	类似maven update, 通过这个命令下载项目依赖的第三方库，同时会去掉不相关的库。
+	3.go mod download
+	下载
+	3.go mod vender
+	把第三方的库拷贝到当前目录的vendor目录，这时goland才能识别不报错
+	4.go mod verify
+	检查下载的第三方库有没有本地修改，如果有修改，则会返回非0，否则验证成功。
+
