@@ -71,3 +71,64 @@ docker 设置容器自动启动和关闭
 	4.go mod verify
 	检查下载的第三方库有没有本地修改，如果有修改，则会返回非0，否则验证成功。
 
+
+kubeadm init \
+      --apiserver-advertise-address=192.192.100.57 \
+      --image-repository registry.aliyuncs.com/google_containers \
+      --kubernetes-version v1.15.0 \
+      --service-cidr=10.96.0.0/12 \
+      --pod-network-cidr=10.244.0.0/16 \
+      --ignore-preflight-errors=Swap
+
+
+
+部署k8s
+> 参考https://www.cnblogs.com/python-cat/p/10831419.html
+> 准备
+	>> swapoff -a 关闭交换区
+> 安装docker
+************************************************************
+install-k8s.sh
+------------------------------------------------------------
+yum install -y yum-utils
+
+sudo yum-config-manager     --add-repo     https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+sudo sed -i 's/download.docker.com/mirrors.aliyun.com\/docker-ce/g' /etc/yum.repos.d/docker-ce.repo
+sudo yum install docker-ce docker-ce-cli containerd.io
+docker version
+
+cp ./kubernetes.repo /etc/yum.repos.d/
+
+yum makecache
+yum install -y kubelet-1.15.0 kubeadm-1.15.0 kubectl-1.15.0
+
+# 配置docker 加速
+cat > /etc/docker/daemon.json << EOF
+{
+  "registry-mirrors": ["https://b9pmyelo.mirror.aliyuncs.com"]
+}
+EOF
+
+systemctl daemon-reload
+systemctl restart docker
+
+kubeadm init \
+      --apiserver-advertise-address=192.192.100.57 \
+      --image-repository registry.aliyuncs.com/google_containers \
+      --kubernetes-version v1.15.0 \
+      --service-cidr=10.96.0.0/12 \
+      --pod-network-cidr=10.244.0.0/16 \
+      --ignore-preflight-errors=Swap
+
+------------------------------------------------------------
+kubernetes.repo
+------------------------------------------------------------
+[Kubernetes]
+name=Kubernetes
+baseurl=https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg https://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
+------------------------------------------------------------
+************************************************************

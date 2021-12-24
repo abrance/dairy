@@ -1,0 +1,201 @@
+> 安装cfssl
+	>> https://www.cnblogs.com/stonecode/p/12502399.html
+
+cfssl gencert -ca=/opt/k8s/work/ca.pem \
+  -ca-key=/opt/k8s/work/ca-key.pem -config=/opt/k8s/work/ca-config.json \
+  -profile=kubernetes kubernetes-csr.json | cfssljson -bare kubernetes
+
+> docker升级
+  >> rpm -qa | grep docker                          # 列出软件包，yum remove 只会删服务，客户端没删掉
+	>> curl -fsSL https://get.docker.com/ | sh        # 安装最新版
+
+> 二进制部署k8s
+	>> 初始化配置
+************************************************************
+init-k8s-conf.sh
+------------------------------------------------------------
+# 关闭防火墙 
+systemctl stop firewalld 
+systemctl disable firewalld 
+ 
+# 关闭selinux 
+sed -i 's/enforcing/disabled/' /etc/selinux/config  # 永久 
+# setenforce 0  # 临时 
+ 
+# 关闭swap 
+# swapoff -a  # 临时 
+sed -ri 's/.*swap.*/#&/' /etc/fstab    # 永久 
+ 
+# 根据规划设置主机名 
+hostnamectl set-hostname master
+ 
+# 在master添加hosts 
+ 
+# 将桥接的IPv4流量传递到iptables的链 
+# cat > /etc/sysctl.d/k8s.conf << EOF 
+# net.bridge.bridge-nf-call-ip6tables = 1 
+# net.bridge.bridge-nf-call-iptables = 1 
+# EOF 
+# sysctl --system  # 生效 
+ 
+# 时间同步 
+yum install ntpdate -y 
+ntpdate time.windows.com
+
+# 创建k8s 目录，存放文件
+mkdir -p /opt/k8s/
+cd /opt/k8s/ && mkdir bin work ssl
+------------------------------------------------------------
+
+# https://blog.csdn.net/u011508407/article/details/108549703
+docker-run-etcd.sh
+------------------------------------------------------------
+docker network create --driver bridge --subnet=10.2.36.0/16 --gateway=10.2.1.1 mynet2
+docker network ls
+
+docker run -d \
+-p 2479:2379 \
+-p 2381:2380 \
+--name node1 \
+--network=mynet2 \
+--ip 10.2.36.1 \
+registry.aliyuncs.com/google_containers/etcd:3.3.10 \
+etcd \
+-name node1 \
+-advertise-client-urls http://10.2.36.1:2379 \
+-initial-advertise-peer-urls http://10.2.36.1:2380 \
+-listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 \
+-initial-cluster-token etcd-cluster \
+-initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" \
+-initial-cluster-state new
+
+docker run -d \
+-p 2579:2379 \
+-p 2382:2380 \
+--name node2 \
+--network=mynet2 \
+--ip 10.2.36.2 \
+registry.aliyuncs.com/google_containers/etcd:3.3.10 \
+etcd \
+-name node2 \
+-advertise-client-urls http://10.2.36.2:2379 \
+-initial-advertise-peer-urls http://10.2.36.2:2380 \
+-listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 \
+-initial-cluster-token etcd-cluster \
+-initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" \
+-initial-cluster-state new
+
+docker run -d \
+-p 2679:2379 \
+-p 2383:2380 \
+--name node3 \
+--network=mynet2 \
+--ip 10.2.36.3 \
+registry.aliyuncs.com/google_containers/etcd:3.3.10 \
+etcd \
+-name node3 \
+-advertise-client-urls http://10.2.36.3:2379 \
+-initial-advertise-peer-urls http://10.2.36.3:2380 \
+-listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 \
+-initial-cluster-token etcd-cluster \
+-initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" \
+-initial-cluster-state new
+
+# etcd 三个节点只通过一个端口暴露
+# -listen-client-urls 参数设置
+------------------------------------------------------------
+
+# 生成证书
+create-ca-server-cert.sh
+------------------------------------------------------------
+# cfssl 已加入nas
+# 安装 cfssl
+wget https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
+wget https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
+wget https://pkg.cfssl.org/R1.2/cfssl-certinfo_linux-amd64
+chmod -x cfssl*
+for x in cfssl*; do mv $x ${x%*_linux-amd64};  done
+mv cfssl* /usr/local/bin
+
+# 生成证书
+# hosts 要填需要用到的所有的ip和域名，相当于可信列表
+cd /opt/k8s
+cat > ca-config.json << EOF
+{
+  "signing": {
+    "default": {
+      "expiry": "87600h"
+    },
+    "profiles": {
+      "www": {
+         "expiry": "87600h",
+         "usages": [
+            "signing",
+            "key encipherment",
+            "server auth",
+            "client auth"
+        ]
+      }
+    }
+  }
+}
+EOF
+
+cat > ca-csr.json << EOF
+{
+    "CN": "etcd CA",
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+        {
+            "C": "CN",
+            "L": "Beijing",
+            "ST": "Beijing"
+        }
+    ]
+}
+EOF
+
+cat > server-csr.json << EOF
+{
+    "CN": "kubernetes",
+    "hosts": [
+      "10.0.0.1",
+      "127.0.0.1",
+      "192.168.31.71",
+      "192.168.31.72",
+      "192.168.31.73",
+"192.168.31.74",
+      "192.168.31.88",
+      "kubernetes",
+      "kubernetes.default",
+      "kubernetes.default.svc",
+      "kubernetes.default.svc.cluster",
+      "kubernetes.default.svc.cluster.local"
+    ],
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+        {
+            "C": "CN",
+            "L": "BeiJing",
+            "ST": "BeiJing",
+            "O": "k8s",
+            "OU": "System"
+        }
+    ]
+}
+EOF
+
+
+cfssl gencert -initca ca-csr.json | cfssljson -bare ca -
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=www server-csr.json | cfssljson -bare server
+
+------------------------------------------------------------
+************************************************************
+
+> 实现自己的schedule https://zhuanlan.zhihu.com/p/35429941

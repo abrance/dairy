@@ -1,0 +1,53 @@
+> go module
+	go module的文件下载后位置：
+	存储下载的依赖包,具体位置在$GOPATH/pkg/mod
+
+	go mod vendor 下载到 项目路径 vendor目录
+
+已知
+> 设置不同的用户可以实现感知到的资产不同   授权的接口修改指定的用户
+> 需要前端调用接口获取此用户的接口         这个前端必须知道 这个用户的身份信息
+> OC后端增加 新增用户，授权中指定到这个用户
+
+nc
+> nc -vz $ip $port  测试端口连通性
+
+git 远程仓库改名
+> git remote rename origin old_origin
+
+新增jumpserver 用户
+UserViewSet: {'password_strategy': 1, 'mfa_level': 0, 'source': 'local', 'role': 'User', 'org_roles': ['User'], 'date_ex\
+pired': '2121-11-22T06:59:12.908Z', 'name': 'commonuser3', 'username': 'commonuser3', 'email': '10312341@qq.com', 'passw\
+ord': '123456'}
+
+> app/jumpserver/conf.py设置了token 24小时过期
+
+
+同一个资产指定给多个工程师，每个工程师luna中只能看到自己那一个资产
+> 原理
+	>> OC后端使用admin用户创建：
+		 1.jumpserver用户
+		 2.asset 特权用户adminuser
+		 3.asset 资产
+		 4.asset 系统用户 systemuser
+		 5.授权 user指定jumpserver用户 ；asset指定资产；sustemuser指定systemuser即可
+		 6.根据新建的user产生的token访问luna，get_tree接口会只返回指定给自己的资产，功能实现
+	>> get_tree 接口会列出用户所能看到的列表 一般都能看到 favorite 和 Default 两个元素，第三个即为资产对象
+	>> 删除时需要将上述新建的对象全部删除
+	>> 所有用户的token只会保留24小时
+
+	接口请求顺序
+	> 获取jumpserver admin用户token
+	> 使用token
+		新增数据先后顺序
+		>> user
+		>> adminuser
+		>> asset
+		>> systemuser
+		>> permission
+		接下来获取新建user的token给前端调用
+	> OC前端拿到这个token访问luna，即可实现此需求
+
+> ssl两端进行加密传输的解释：
+	>> 服务器配置了 证书和私钥 ，客户端进行请求，第一次 ssl 握手时，服务器传了两个文件， 证书 和 公钥。客户端选择进行保存文件并生成私钥，公钥进行后面所有包的加密，私钥进行解密，这样就完成了 HTTPS 对所有包的保护。
+

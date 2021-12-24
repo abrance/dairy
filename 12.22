@@ -1,0 +1,8 @@
+> 一个go指针对象，取值后再取址，会得到一个新对象
+
+> kubebuilder          https://github.com/kubernetes-sigs/kubebuilder
+	>> 依赖k8s
+> apiserver-builder    https://github.com/kubernetes-sigs/apiserver-builder-alpha
+> sample-apiserver
+	>> https://github.com/abrance/sample-apiserver
+

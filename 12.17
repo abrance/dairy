@@ -1,0 +1,24 @@
+> 个人gitlab: http://462i804s58.zicp.vip:30000/
+	>> root  110isfaker.
+	>> xiaoy 110isfaker.
+
+> 下载百度文库文档
+	>> 链接的域名 baidu后面加 vvv 即可跳转下载页面
+
+> emacs显示时间 display-time
+
+汇报
+> 成果
+	>> jumpserver core luna koko测试环境部署完成并适配OC的需求
+	>> jumpserver接口文档在进行维护
+	>> 对k8s apiserver进行研究
+	>> k8s apiserver 进行自定义资源的定义
+	>> k8s 部署脚本编写
+> 下周计划
+	>> 配合张工进行研发工作
+	>> 继续apiserver的研究
+	>> 继续跟进jumpserver的工作
+
+git 推送一个已存在的仓库到新的远程仓库
+> git remote add new-pro $url
+> git push -u new-pro --all

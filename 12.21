@@ -1,0 +1,142 @@
+> kubectl
+	>> https://www.yisu.com/zixun/23685.html
+	>> 是什么：从用户角度来说，kubectl 就是控制 Kubernetes 的驾驶舱，它允许你执行所有可能的 Kubernetes 操作；从技术角度来看，kubectl 就是 Kubernetes API 的一个客户端而已
+		>>> kubectl是Kubernetes的命令行工具，人们通常通过它与Kubernetes进行交互。通过kubectl能够对集群本身进行管理，并能够在集群上进行容器化应用的安装部署。
+	>> kubectl命令可以执行一个行动，如get、create或者describe
+	>> 命令
+		>>> apply
+		这一命令可以通过文件名或控制台输入，对资源进行配置。并且apply能够对集群资源进行声明式管理：如果资源不存在，apply将创建它；如果它存在，apply将更改它。
+		此外，apply还能够添加Service到适用的资源或者通过添加Pod自动化弹性伸缩的Deployment。
+		请注意，你可以使用create来创建一个Deployment并且使用expose创建一个Service。但相对来说，无论对于文件本身还是之后需要重新使用来说，使用带有apply的YAML文件是更好选择。apply是创建和更新资源的“Swiss knife”
+		>>> exec
+		exec帮助你debug一个容器进程，它允许你通过带-it的伪终端在容器内执行进程。例如，要在my_pod中进入容器并运行Bash，请输入kubectl exec -it my_pod bash
+		>>> delete
+		kubectl delete pod my_pod这一命令可用于删除名称为my_pod的Pod。
+		要删除所有相同类型的资源，需要使用--all标志。例如，使用kubectl delete rs –all可以删除所有ReplicaSet。请注意，如果你尝试这一操作，那么要先删除Deployment，否则ReplicaSet将会重新启动
+
+> 不直接对pods进行管理，对deployment service ingress 进行管理
+
+
+> k8s apiserver 进行交互
+> etcd 的机制
+> apiextensions 源码分析
+	>> 配置 初始化 运行
+
+
+> apiextensions
+	>> APIExtensionsServer负责管理apiextensions.k8s.io资源组下的所有资源，该资源有v1beta1版本。通过访问http://127.0.0.1:8080/apis/apiextensions.k8s.io/v1获得该资源/子资源的详细信息，命令示例如下
+
+TODO
+> crd informer apiserver 跑通
+> 如何进行 apiserver 间ip的浮动
+	>> VIP + arp 机制
+
+
+> 为什么要做这一套而不是直接使用k8s
+	>> k8s 那一套集成太多功能，我们只使用apiextensionsServer的功能
+	>> k8s 剥离出来的这一套，也能兼容k8s 生态
+
+k8s 部署
+> https://www.cnblogs.com/xuweiweiwoaini/p/13884112.html
+
+
+安装 go-1.17
+************************************************************
+centos-install-go-1.17.sh
+------------------------------------------------------------
+cd /opt/software
+wget https://golang.google.cn/dl/go1.17.linux-amd64.tar.gz
+tar -zxf go1.17.linux-amd64.tar.gz -C /usr/local
+
+cat >> /etc/profile << EOF
+# golang
+export GOROOT=/usr/local/go 
+export GOPATH=/data/gopath
+export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
+EOF
+
+mkdir -p /data/gopath
+source /etc/profile
+go env -w  GOPROXY=https://goproxy.cn,direct
+------------------------------------------------------------
+************************************************************
+
+> docker lastest
+	>> http://dockone.io/article/165
+
+
+> etcd 集群
+************************************************************
+https://blog.csdn.net/u011508407/article/details/108549703
+docker-run-etcd.sh
+------------------------------------------------------------
+docker network create --driver bridge --subnet=10.2.36.0/16 --gateway=10.2.1.1 mynet2
+docker network ls
+
+docker run -d \
+-p 2479:2379 \
+-p 2381:2380 \
+--name node1 \
+--network=mynet2 \
+--ip 10.2.36.1 \
+registry.aliyuncs.com/google_containers/etcd:3.3.10 \
+etcd \
+-name node1 \
+-advertise-client-urls http://10.2.36.1:2379 \
+-initial-advertise-peer-urls http://10.2.36.1:2380 \
+-listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 \
+-initial-cluster-token etcd-cluster \
+-initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" \
+-initial-cluster-state new
+
+docker run -d \
+-p 2579:2379 \
+-p 2382:2380 \
+--name node2 \
+--network=mynet2 \
+--ip 10.2.36.2 \
+registry.aliyuncs.com/google_containers/etcd:3.3.10 \
+etcd \
+-name node2 \
+-advertise-client-urls http://10.2.36.2:2379 \
+-initial-advertise-peer-urls http://10.2.36.2:2380 \
+-listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 \
+-initial-cluster-token etcd-cluster \
+-initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" \
+-initial-cluster-state new
+
+docker run -d \
+-p 2679:2379 \
+-p 2383:2380 \
+--name node3 \
+--network=mynet2 \
+--ip 10.2.36.3 \
+registry.aliyuncs.com/google_containers/etcd:3.3.10 \
+etcd \
+-name node3 \
+-advertise-client-urls http://10.2.36.3:2379 \
+-initial-advertise-peer-urls http://10.2.36.3:2380 \
+-listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 \
+-initial-cluster-token etcd-cluster \
+-initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" \
+-initial-cluster-state new
+
+# etcd 三个节点只通过一个端口暴露
+# -listen-client-urls 参数设置
+------------------------------------------------------------
+************************************************************
+
+> 没有ps
+	>> apt-get update && apt-get install procps
+
+> cobra
+	>> command
+		>>> cobra.Command
+	>> flag
+
+> apiserver认证机制
+	>> https://blog.csdn.net/u012986012/article/details/105291902
+	>> https://cloud.tencent.com/developer/article/1915909               自定义webhook进行自定义认证鉴权授权
+	>> 期望
+		>>> 暴露给外部的进行token 验证，内部免认证
+		

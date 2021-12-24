@@ -1,0 +1,180 @@
+> go package 的概念
+	>> 如何阅读源码
+
+
+
+> operator
+	>> 概念
+	一种特定于应用的控制器，可扩展 Kubernetes API 的功能，来代表 Kubernetes 用户创建、配置和管理复杂应用的实例。
+	资源和控制器概念构建，但又涵盖了特定于域或应用的知识，用于实现其所管理软件的整个生命周期的自动化
+	operator是使用自定义资源（CR）管理应用及其组件的自定义 Kubernetes 控制器。
+	使用自定义资源（CR）管理应用及其组件的自定义 Kubernetes 控制器。
+	>>
+
+> CNI网络组件
+	>> 作为容器平台的网络标准化组件，为容器提供跨网段的通信支持，是k8s 集群overlay 网络的实现关键
+
+> flannel
+	>> https://zhuanlan.zhihu.com/p/365384943
+	>> flannel是一个针对Kubernates设计的overlay的三层网络解决方案（这里的三层是指核心层 汇聚层和接入层，不是OSI七层模型中的层），目的是帮助k8s集群中管理节点间的网络配置和通信
+	>> flannel 依赖etcd
+	>> 配置
+		>>> 全局网络配置
+------------------------------------------------------------
+# flannel 通过配置文件确定整个使用flannel的集群的网路地址空间范围以及使用的backend 的类型，视为针对集群网络的全局配置 e.g.
+# 保存与etcd
+{
+	"Network": "10.0.0.0/8",
+	"SubnetLen": 20,
+	"SubnetMin": "10.10.0.0",
+	"SubnetMax": "10.99.0.0",
+	"Backend": {
+		"Type": "udp",
+		"Port": 7890
+	}
+}
+------------------------------------------------------------
+		>>> 节点网络配置
+------------------------------------------------------------
+# 每个节点启动或加入集群，flannel对其进行网络配置。通过设置flanneld作为每个节点的代理，拿到全局网络的一个subnet，每个pod从这个subnet中分配
+------------------------------------------------------------
+		>>> 网络数据流向
+------------------------------------------------------------
+    ┌─────────────────────────────────────────────────────┐
+    │                                                     │
+    │                       Machine A                     │
+    │  ┌──────────────┐                                   │
+    │  │      pod1    │                                   ├───────────────┐
+    │  │10.1.15.2/24  │       ┌────────────┐              │               │
+    │  └──────────────┴───────┤    cni0    │  ┌─────────┐ │192.168.0.100  │◄───────┐
+    │                         │10.1.15.1/24│  │flanneld │ │   eth0        │        │
+    │  ┌──────────────┐       │            │  └─────────┘ │               │        │
+    │  │      pod2    ├───────┴────────────┘              ├───────────────┘        │
+    │  │10.1.15.3/24  │DST             GW         Dev     │                        │
+    │  └──────────────┘10.1.15.0/24 -             CNI0    │                        │
+    │                  10.1.16.0/24 192.168.0.200 eth0    │                        │
+    │                                                     │                    ┌───┴──┐
+    └─────────────────────────────────────────────────────┘                    │      │
+                                                                               │packet│
+    ┌─────────────────────────────────────────────────────┐                    └───┬──┘
+    │                                                     │                        │
+    │                       Machine B                     │                        │
+    │  ┌──────────────┐                                   │                        │
+    │  │      pod1    │                                   ├───────────────┐        │
+    │  │10.1.16.2/24  │       ┌────────────┐              │               │        │
+    │  └──────────────┴───────┤    cni0    │  ┌─────────┐ │192.168.0.100  │        │
+    │                         │10.1.16.1/24│  │flanneld │ │   eth0        │◄───────┘
+    │  ┌──────────────┐       │            │  └─────────┘ │               │
+    │  │      pod2    ├───────┴────────────┘              ├───────────────┘
+    │  │10.1.16.3/24  │DST             GW         Dev     │
+    │  └──────────────┘10.1.16.0/24 -             CNI0    │
+    │                  10.1.15.0/24 192.168.0.200 eth0    │
+    │                                                     │
+    └─────────────────────────────────────────────────────┘
+------------------------------------------------------------
+		
+	
+
+> 工作流程
+------------------------------------------------------------
+// operator 对apiserver发起一个watch，表示监听一类资源
+// web 发布crd，apiserver schema 匹配到相应的operator，inform
+// operator根据信息对 cr进行增删改查
+
+crd customresourcedefinitions
+cr  customresource
+etcd 可以直接看作apiserver的部分，apiserver是etcd的唯一入口
+operator 是一种controller 
+
+    ┌─────┐
+    │ web │
+    └──┬──┘
+       │post crd
+       │
+       ▼          watch ┌────────────┐
+  ┌───────────┐ ◄───────┤            │
+  │apiserver  ├───────► │  operator  │
+  └────┬──────┘inform   │            │
+       │                └─┬──────────┘
+       │                  │
+       ▼                  ▼ crud
+┌──────────────┐        ┌───────┐
+│ etcd cluster │        │  cr   │
+└──────────────┘        └───────┘
+------------------------------------------------------------
+
+> k8s master 的组件
+	>> apiserver
+		k8s 的入口程序，提供rest和cmd的api
+		etcd连接
+		监听资源的变化，watch的主要承担者，负责通知到相应的controller
+	>> etcd
+		数据库
+	>> scheduler
+		监听新建pod副本信息，并通过调度算法为该pod选择一个最合适的Node节点。会检索到所有符合该pod要求的Node节点，执行pod调度逻辑。调度成功之后，会将pod信息绑定到目标节点上，同时将信息写入到etcd中。一旦绑定，就由Node上的kubelet接手pod的接下来的生命周期管理。
+		scheduler是一个黑匣子，它的输入是pod和由多个Node组成的列表，输出是pod和一个Node的绑定，即将这个pod部署到这个Node上。
+		Kubernetes目前提供了调度算法，但是同样也保留了接口，用户可以根据自己的需求定义自己的调度算法。
+	>> controller manager
+		负责维护集群的状态，比如故障检测、自动扩展、滚动更新等。每个资源一般都对应有一个控制器，这些controller通过apiserver实时监控各个资源的状态，controller manager就是负责管理这些控制器的。当有资源因为故障导致状态变化，controller就会尝试将系统由“现有状态”恢复到“期待状态”，保证其下每一个controller所对应的资源始终处于期望状态。比如我们通过api server创建一个pod，当这个pod创建成功后，api server的任务就算完成了。而后面保证pod的状态始终和我们预期的一样的重任就由controller manager去保证
+
+> k8s controller
+	>> 存在很多controller，包括ReplicaSet, ReplicationController(暂不使用)  , Deployment, StatefulSet等。
+	>> controller 源码
+		>>> 技巧
+			控制器的源代码可以从 https://github.com/kubenetes/kubemetes/blob/master/pkg/controller 获取。每个控制器一般有一个构造器， 内部会创建一个 Informer, 其实是个监听器， 每次API对象有更新就会被调用。 通常， Informer 会监听特定类型的资源变更事件。 查看构造器可以了解控制器监听的是哪个资源。
+			接下来， 去看 worker()方法。 其中定义了每次控制器需要工作的时候都会调用 worker()方法。 实际的函数通常保存在一个叫 syncHandler 或类似的字段里。 该字段也在构造器里初始化， 可以在那里找到被调用函数名。该函数是所有魔法发生的地方。
+
+> Node组件
+	>> Kubelet：kubelet是node的agent，当Scheduler确定在某个Node上运行Pod后，会将Pod的具体配置信息（image、volume等）发送给该节点的kubelet，kubelet会根据这些信息创建和运行容器，并向master报告运行状态。
+	>> Container Runtime：每个Node都需要提供一个容器运行时（Container Runtime）环境，它负责下载镜像并运行容器。目前K8S支持的容器运行环境至少包括Docker、RKT、cri-o、Fraki等。
+	>> Kube-proxy：service在逻辑上代表了后端的多个Pod，外借通过service访问Pod。service接收到请求就需要kube-proxy完成转发到Pod的。每个Node都会运行kube-proxy服务，负责将访问的service的TCP/UDP数据流转发到后端的容器，如果有多个副本，kube-proxy会实现负载均衡，有2种方式：LVS或者Iptables
+
+> k8s端口详解
+	>> https://www.cnblogs.com/yanh0606/p/11207762.html
+	>> nodePort
+		k8s集群中发发布完service之后，如果需要外部访问，nodePort是一种访问方式，即nodePort是提供给外部流量访问k8s集群中service使用的端口。例如外部用户要访问k8s集群中的一个Web应用，那么我们可以配置对应的service如下，就可以从外部通过浏览器http://node:28080访问到该web服务
+	>> port
+	  k8s集群内部服务之间相互访问service的端口。例如连接mysql使用3306端口，容器创建后暴露了3306端口，集群内其他容器想通过23306端口访问mysql服务，但是没有配置NodePort，外部流量就不能访问mysql服务
+	>> targetPort
+		从上面例子也能看出来targetPort是什么，它就是容器真正暴露的端口（使用DockerFile中的EXPOSE），targetPort是pod上的端口，从port和nodePort上来的流量，经过kube-proxy流入到后端pod的targetPort上，最后进入容器内。例如一个容器暴露8080端口的tomcat完整配置如下，nodePort可以不配，会自动指定一个端口
+
+> k8s 非安全端口
+	>> https://blog.csdn.net/GX_1_11_real/article/details/115730831
+	>> https://blog.csdn.net/qq_34556414/article/details/110000037    kubeconfig 配置详解
+	>> localhost:8080  非安全端口（不需要认证，没有加入认证机制），是kubectl默认先连接8080，如果你配置kubeconfig（.kube/config）就直接走这个配置连接的安全端口（在master上没有8080端口，走的是kubeconfig）
+	>> masterip:6443  安全端口 ，提供了内部授权的机制，比如登入网站想要输入用户名密码才能登入
+	>> kubeadm安装的默认禁用了8080端口，二进制安装默认是启用的，他们两个区别在于有没有加入身份认证，即鉴权。这个文件在这个目录下面，在root家目录下面。这个配之文件是在安装最后一步拷贝过来的
+	
+kubectl get pod -n kube-system
+> 查看k8s系统进程
+
+> apiserver CrashLoopBackOff排错思路
+	>> 查看docker 进程log，如果是address in use，kill掉重启
+
+> 去除污点（使节点进行负载）
+	>> kubectl describe node $node_name | grep Taints
+	>> kubectl taint node $node_name node-role.kubernetes.io/master-   # node-role.kubernetes.io/master为上面的输出
+	>> 去除污点后变为 taints:<none> 未去除 taints: NoSchedule
+
+> k8s使用命令部署nginx
+------------------------------------------------------------
+# 以deploymen方式 起pod
+kubectl create deployment nginx-deployment --image=nginx
+# 创建一个nginx pod对应的 service 以nodeport类型创建
+kubectl expose deployment nginx-deployment --port=80 --target-port=80 --name=nginx-service --type=NodePort
+# 查看nginx 对应的nodeport
+kubectl get svc|grep nginx|cut -d":" -f2|cut -d"/" -f1
+------------------------------------------------------------
+
+> docker已停止的容器
+	>> 查看 docker ps -a -f status=exited   -f 筛选
+	>> 删除docker rm $(sudo docker ps -qf status=exited)
+
+> docker 删除所有镜像
+	>> docker images -qa|xargs docker rmi -f
+
+> kubeadm 安装方式k8s 集群卸载
+	>> kubeadm reset     # 停止docker里面的组件并删除
+	>> rpm -qa|grep kube*|xargs rpm --nodeps -e            # 删除rpm包
+	>> docker images -qa|xargs docker rmi -f               # 删除掉所有镜像，看清楚再删
+
