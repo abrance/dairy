@@ -1,0 +1,197 @@
+> operator 开发
+	>> operator 开发kubebuilder实战   https://bbs.huaweicloud.com/blogs/312630
+	>> operator:operator 是描述、部署和管理 kubernetes 应用的一套机制，从实现上来说，可以将其理解为 CRD 配合可选的 webhook 与 controller 来实现用户业务逻辑，即 operator = CRD + webhook + controller。
+	>> controller :它会循环地处理上述工作队列，按照各自的逻辑把集群状态向预期状态推动。不同的 controller 处理的类型不同，比如 replicaset controller 关注的是副本数，会处理一些 Pod 相关的事件；
+	>> CRD(custom resource definition)
+	>> 允许用户自定义k8s资源，是一个类型
+	>> CR(custom resource) CRD的实例
+	>> webhook：本质上是 HTTP 回调，会注册到apiserver，当触发事件时，会查询已注册的webhook，并发送对应消息
+		>>> 按照处理类型的不同，一般可以将其分为两类：一类可能会修改传入对象，称为 mutating webhook；一类则会只读传入对象，称为 validating webhook
+	>> 工作队列: controller 的核心组件。它会监控集群内的资源变化，并把相关的对象，包括它的动作与 key，例如 Pod 的一个 Create 动作，作为一个事件存储于该队列中；
+
+
+> 使用原生进行operator开发
+> kubebuilder operator
+
+> k8s yaml 部署服务
+	>> nginx https://zhuanlan.zhihu.com/p/265997618
+
+> yaml
+	>> k8s yaml 大概有列表和散列表数据结构组成
+	>> 数据结构可以用类似大纲的缩排方式呈现，结构通过 缩进 来表示，连续的项目通过 减号“-”来表示，map 结构里面的 key/value 对用冒号“:”来分隔
+------------------------------------------------------------
+country:
+  - province_id: 1
+		province:    guangdong
+		citys:
+		- city_id:   1.1
+			city:      sz
+  - province_id: 2
+		province:    hubei
+		citys:
+		- city_id:   2.1
+			city:      wh
+
+# 其实表示了这样一个数据结构
+country 为一个列表 一个 - 以下为一个列表元素，- 后面的元素 : 表示一个键值对
+可看成
+country: [{province_id: 1, province: guangdong, citys: [{city_id:1.1, city:sz}]}, {province_id: 2, province: hubei, citys: [{city_id: 2.1, city: wh}]}]
+------------------------------------------------------------
+	>> 注意
+		 字串不一定要用双引号标识；
+		 在缩排中空白字符的数目并不是非常重要，只要相同阶层的元素左侧对齐就可以了（不过 不能使用TAB字符）；
+		 允许在文件中加入选择性的空行，以增加可读性；
+		 在一个档案中，可同时包含多个文件，并用“——”分隔；
+		 选择性的符号“...”可以用来表示档案结尾（在利用串流的通讯中，这非常有用，可以在不关闭串流的情况下，发送结束讯号）。
+	
+
+> k8s yaml 规则
+	>> namespace
+------------------------------------------------------------
+apiVersion: v1 #类型为 Namespace
+kind: Namespace  #类型为 Namespace
+metadata:
+  name: ns-test  #命名空间名称
+  labels:
+    name: label-test  #pod 标签
+------------------------------------------------------------
+	>> deployment
+------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: ns-test
+  name: nginx-deployment
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+------------------------------------------------------------
+	>> service
+------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: ns-test
+  name: nginx-service
+spec:
+  selector:
+    app: nginx
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+------------------------------------------------------------
+
+> 获取pod yaml描述文件
+	>> kubectl get po $pod_name -o yaml -n $namespace
+> 获取crd和描述
+	>> kubectl get crd
+	>> kubectl describe crd $crd
+
+> kubectl yaml 部署crd实例
+	>> k8s in action 这个书上写错了 group verion names 都没缩进
+	>> yaml部署crd实例  https://blog.csdn.net/boling_cavalry/article/details/88917818
+************************************************************
+nx-crd.yaml
+------------------------------------------------------------
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: nxs.extensions.example.com                     # spec.names.plural + . + spec.group
+spec:
+  scope: Namespaced                                    # Namespaced Cluster
+  group: extensions.example.com
+  version: v1
+  names:
+    kind: nx
+    singular: nx
+    plural: nxs
+------------------------------------------------------------
+nx-cr.yaml
+------------------------------------------------------------
+apiVersion: extensions.example.com/v1                  # group + version
+kind: nx
+metadata:
+  name: object-nx
+spec:
+  name: "张三"
+  school: "深圳中学"
+------------------------------------------------------------
+************************************************************
+
+> go 单向channel
+	>> 单向双向channel    https://haicoder.net/golang/golang-oneway-channel.html
+	>> var c chan int 双向
+	>> var c <-chan int 单向只读
+	>> var c chan<- int 单向只写
+
+> go ...
+	>> 解开切片元素
+------------------------------------------------------------
+func main() {
+	s := []string{"a", "b"}
+	func1 := func(args ...string) {        // ... 放前面是压缩，表明接受可变数量的参数
+		for i, arg := range args {
+			fmt.Printf("arg:%d %s\n", i, arg)
+		}
+	}
+	func1(s...)                            // ... 放后面是解开
+}
+------------------------------------------------------------
+
+cd $GOPATH/src \
+&& go get -u k8s.io/apimachinery/pkg/apis/meta/v1 \
+&& go get -u k8s.io/code-generator/... \
+&& cd $GOPATH/src/k8s.io/code-generator \
+&& ./generate-groups.sh all \
+k8s_customize_controller/pkg/client \
+k8s_customize_controller/pkg/apis \
+bolingcavalry:v1
+
+> controller 生成代码实践
+	> go mod init k8s_customize_controller
+	> 新增tools/tools.go
+	************************************************************
+	tools.go
+	------------------------------------------------------------
+	package tools
+
+	import _ "k8s.io/code-generator"
+	------------------------------------------------------------
+	************************************************************
+	> code-generator 使用 https://www.lijiaocn.com/%E9%A1%B9%E7%9B%AE/2019/04/04/k8s-code-generator-usage.html
+		>> 生成代码之前，还要准备一个代码文件模板，hack/boilerplate.go.txt，模板中的内容会在生成的代码文件中出现
+	************************************************************
+	hack/boilerplate.go.txt
+	------------------------------------------------------------
+	/*
+	Copyright 2019 The Lijiao Authors.
+
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
+
+			http://www.apache.org/licenses/LICENSE-2.0
+
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
+	 */
+	------------------------------------------------------------
+	************************************************************
+	> vendor/k8s.io/code-generator/generate-groups.sh all k8s_customize_controller/pkg/client k8s_customize_controller/pkg/apis bolingcavalry:v1 --go-header-file  hack/boilerplate.go.txt
+
