@@ -1,0 +1,387 @@
+> ssh免密码登录
+************************************************************
+ssh-no-pwd.sh
+------------------------------------------------------------
+# 生成密钥对 ，可以用之前生成的，在 ~/.ssh/的 id_rsa id_rsa.pub
+# ssh-keygen -t rsa
+# 公钥给远程服务器, centos 下执行 ssh-copy-id root@$remote-server-ip 即可
+ssh-copy-id ~/.ssh/id_rsa.pub root@$remote-server-ip
+------------------------------------------------------------
+************************************************************
+
+> 搭建apiGate的环境
+	>> centos7  CPU2核4线程  内存4G  磁盘50G
+	>> etcd  3.4.9
+	>> kubectl apiserver 采用 1.17.13版本（这个版本仍然支持8080端口本机免认证登录）
+	>> operator 环境
+		>>> kustomize      3.0
+		>>> kubebuilder    3.0
+
+> 搭建 apiGate步骤
+	>> 准备centos7机器
+	>> 环境准备
+	>> 添加k8s yum repo
+	>> go 1.17安装
+	>> etcd 搭建
+	>> apiserver 搭建
+	>> kubectl 配置和安装
+	>> kubebuilder 搭建
+	
+
+> 环境准备
+************************************************************
+init-apigateway.sh
+------------------------------------------------------------
+# 关闭防火墙
+systemctl stop firewalld
+systemctl disable firewalld
+
+# 关闭selinux
+setenforce 0
+sed -i 's/enforcing/disabled/' /etc/selinux/config
+
+# 关闭swap
+swapoff -a
+
+hostnamectl set-hostname apigateway1
+cat >> /etc/hosts << EOF 
+192.192.100.59 apigateway1 
+192.192.100.60 apigateway2
+192.192.100.61 apigateway3
+EOF
+
+yum install ntpdate -y
+
+ntpdate -u ntp.api.bz
+------------------------------------------------------------
+************************************************************
+
+> 添加k8s yum repo
+************************************************************
+add-k8s-yumrepo.sh
+------------------------------------------------------------
+#!/bin/bash
+
+cp ./kubernetes.repo /etc/yum.repos.d/
+yum makecache
+------------------------------------------------------------
+************************************************************
+
+> go 1.17安装
+************************************************************
+install-go-1.17.sh
+------------------------------------------------------------
+yum install -y wget 
+
+cd /opt/software
+wget https://golang.google.cn/dl/go1.17.linux-amd64.tar.gz
+tar -zxf go1.17.linux-amd64.tar.gz -C /usr/local
+
+cat >> /etc/profile << EOF
+# golang
+export GOROOT=/usr/local/go
+export GOPATH=/data/gopath
+export PATH=\$PATH:\$GOROOT/bin:\$GOPATH/bin
+export GO111MODULE=on
+EOF
+
+mkdir -p /data/gopath
+source /etc/profile
+go env -w  GOPROXY=https://goproxy.cn,direct
+------------------------------------------------------------
+************************************************************
+
+> etcd 搭建
+************************************************************
+etcd-setup.sh
+------------------------------------------------------------
+ln -s /opt/k8s/pkg/etcd-v3.4.9-linux-amd64/etcd* /usr/local/bin/
+
+cat >> /etc/profile/ << EOF
+export ETCDCTL_API=3
+EOF
+------------------------------------------------------------
+
+etcd-run.sh
+------------------------------------------------------------
+# /bin/bash
+# 这是实际的运行命令，实际运行时使用 systemd 运行
+etcd \
+--name node1 \
+--advertise-client-urls http://127.0.0.1:2379 \
+--initial-advertise-peer-urls http://192.192.100.59:2380 \
+--listen-client-urls http://192.192.100.59:2379,http://127.0.0.1:2379 \
+--listen-peer-urls http://192.192.100.59:2380 \
+--initial-cluster-token etcd-cluster \
+--initial-cluster node1=http://192.192.100.59:2380,node2=http://192.192.100.60:2380,node3=http://192.192.100.61:2380 \
+--initial-cluster-state new
+------------------------------------------------------------
+etcd \
+--name node2 \
+--advertise-client-urls http://127.0.0.1:2379 \
+--initial-advertise-peer-urls http://192.192.100.60:2380 \
+--listen-client-urls http://192.192.100.60:2379,http://127.0.0.1:2379 \
+--listen-peer-urls http://192.192.100.60:2380 \
+--initial-cluster-token etcd-cluster \
+--initial-cluster node1=http://192.192.100.59:2380,node2=http://192.192.100.60:2380,node3=http://192.192.100.61:2380 \
+--initial-cluster-state new
+------------------------------------------------------------
+etcd \
+--name node3 \
+--advertise-client-urls http://127.0.0.1:2379 \
+--initial-advertise-peer-urls http://192.192.100.61:2380 \
+--listen-client-urls http://192.192.100.61:2379,http://127.0.0.1:2379 \
+--listen-peer-urls http://192.192.100.61:2380 \
+--initial-cluster-token etcd-cluster \
+--initial-cluster node1=http://192.192.100.59:2380,node2=http://192.192.100.60:2380,node3=http://192.192.100.61:2380 \
+--initial-cluster-state new
+------------------------------------------------------------
+
+etcd.conf
+------------------------------------------------------------
+ETCD_OPTS='--name node1 \
+--advertise-client-urls http://127.0.0.1:2379 \
+--initial-advertise-peer-urls http://192.192.100.59:2380 \
+--listen-client-urls http://192.192.100.59:2379,http://127.0.0.1:2379 \
+--listen-peer-urls http://192.192.100.59:2380 \
+--initial-cluster-token etcd-cluster \
+--initial-cluster node1=http://192.192.100.59:2380,node2=http://192.192.100.60:2380,node3=http://192.192.100.61:2380 \
+--initial-cluster-state new'
+------------------------------------------------------------
+
+etcd.service
+------------------------------------------------------------
+[Unit]
+Description=ETCD
+Documentation=https://github.com/kubernetes/kubernetes
+
+[Service]
+EnvironmentFile=/opt/k8s/work/etcd.conf
+ExecStart=/usr/local/bin/etcd $ETCD_OPTS
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+------------------------------------------------------------
+************************************************************
+
+> apiserver 搭建
+	>> 证书签发
+************************************************************
+ca-csr.json
+------------------------------------------------------------
+{
+  "CN": "kubernetes CA",
+  "hosts": [
+    "127.0.0.1",
+    "192.192.100.59",
+    "192.192.100.60",
+    "192.192.100.61",
+    "kubernetes",
+    "kubernetes.default",
+    "kubernetes.default.svc",
+    "kubernetes.default.svc.cluster",
+    "kubernetes.default.svc.cluster.local."
+  ],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "ST": "Shanghai",
+      "L": "Shanghai",
+      "O": "k8s",
+      "OU": "System"
+    }
+  ]
+}
+------------------------------------------------------------
+ca-config.json
+------------------------------------------------------------
+{
+  "signing": {
+    "default": {
+      "expiry": "87600h"
+    },
+    "profiles": {
+      "kubernetes": {
+         "expiry": "87600h",
+         "usages": [
+            "signing",
+            "key encipherment",
+            "server auth",
+            "client auth"
+        ]
+      }
+    }
+  }
+}
+------------------------------------------------------------
+server-csr.json
+------------------------------------------------------------
+{
+    "CN": "kubernetes",
+    "hosts": [
+      "127.0.0.1",
+      "192.192.100.59",
+      "192.192.100.60",
+      "192.192.100.61",
+      "kubernetes",
+      "kubernetes.default",
+      "kubernetes.default.svc",
+      "kubernetes.default.svc.cluster",
+      "kubernetes.default.svc.cluster.local."
+    ],
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+        {
+      "C": "CN",
+      "ST": "Shanghai",
+      "L": "Shanghai",
+      "O": "k8s",
+      "OU": "System"
+        }
+    ]
+}
+------------------------------------------------------------
+
+init-cert.sh
+------------------------------------------------------------
+#!/bin/bash
+
+# 执行结束出现 ca.pem ca-key.pem server.pem server-key.pem token.csv
+cd /opt/k8s/work
+cfssl gencert -initca ca-csr.json | cfssljson -bare ca -
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=www server-csr.json | cfssljson -bare server
+
+cat > token.csv << EOF
+c47ffb939f5ca36231d9e3121a252940,kubernetes-admin,1,"system:kubernetes-admin"
+EOF
+------------------------------------------------------------
+kube-apiserver.conf
+------------------------------------------------------------
+KUBE_APISERVER_OPTS="--logtostderr=false \
+--v=5 \
+--log-dir=/opt/kubernetes/logs \
+--etcd-servers=http://127.0.0.1:2379 \
+--bind-address=127.0.0.1 \
+--secure-port=6443 \
+--insecure-port=8080 \
+--insecure-bind-address=0.0.0.0 \
+--advertise-address=127.0.0.1 \
+--allow-privileged=true \
+--service-cluster-ip-range=192.192.100.1/24 \
+--enable-admission-plugins=NamespaceLifecycle,LimitRanger,ServiceAccount,ResourceQuota,NodeRestriction \
+--authorization-mode=RBAC,Node \
+--enable-bootstrap-token-auth=true \
+--token-auth-file=/opt/k8s/work/token.csv \
+--service-node-port-range=30000-32767 \
+--kubelet-client-certificate=/opt/k8s/work/server.pem \
+--kubelet-client-key=/opt/k8s/work/server-key.pem \
+--tls-cert-file=/opt/k8s/work/server.pem  \
+--tls-private-key-file=/opt/k8s/work/server-key.pem \
+--client-ca-file=/opt/k8s/work/ca.pem \
+--service-account-key-file=/opt/k8s/work/ca-key.pem \
+--service-account-issuer=api \
+--service-account-signing-key-file=/opt/k8s/work/server-key.pem \
+--requestheader-client-ca-file=/opt/k8s/work/ca.pem \
+--proxy-client-cert-file=/opt/k8s/work/server.pem \
+--proxy-client-key-file=/opt/k8s/work/server-key.pem \
+--requestheader-allowed-names=kubernetes \
+--requestheader-extra-headers-prefix=X-Remote-Extra- \
+--requestheader-group-headers=X-Remote-Group \
+--requestheader-username-headers=X-Remote-User \
+--enable-aggregator-routing=true \
+--audit-log-maxage=30 \
+--audit-log-maxbackup=3 \
+--audit-log-maxsize=100 \
+--audit-log-path=/opt/k8s/logs/k8s-audit.log"
+------------------------------------------------------------
+kube-apiserver.service
+------------------------------------------------------------
+Description=Kubernetes API Server
+Documentation=https://github.com/kubernetes/kubernetes
+
+[Service]
+EnvironmentFile=/opt/k8s/work/kube-apiserver.conf
+ExecStart=/opt/k8s/kubernetes/server/bin/kube-apiserver $KUBE_APISERVER_OPTS
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+------------------------------------------------------------
+************************************************************
+
+> kubectl 配置
+************************************************************
+~/.kube/config
+------------------------------------------------------------
+apiVersion: v1
+clusters:
+- cluster:
+    server: http://127.0.0.1:8080
+  name: kubernetes
+contexts:
+- context:
+    cluster: kubernetes
+    user: kubernetes-admin
+  name: kubernetes-admin@kubernetes
+current-context: kubernetes-admin@kubernetes
+kind: Config
+preferences: {}
+users:
+- name: kubernetes-admin
+------------------------------------------------------------
+************************************************************
+> kubectl 安装
+************************************************************
+link-kubectl.sh
+------------------------------------------------------------
+#!/bin/bash
+
+cd /opt/k8s/kubernetes/server/bin
+ln -s ${PWD}/kubectl /usr/local/bin/
+cat >> /etc/profile << EOF
+export k="kubectl"
+EOF
+
+source /etc/profile
+------------------------------------------------------------
+************************************************************
+
+> kubebuilder 环境搭建
+	>> kustomize 3.0 安装
+		>>> GOBIN=$(pwd)/ GO111MODULE=on go get sigs.k8s.io/kustomize/kustomize/v3
+	>> kubebuilder 3.0安装
+		>>> wget https://github.com/kubernetes-sigs/kubebuilder/releases/download/v3.0.0/kubebuilder_linux_amd64
+
+> operator 简单实践
+************************************************************
+history
+------------------------------------------------------------
+mkdir operator1 && cd operator1
+go mod init xiaoy.io/operator1
+kubebuilder init --domain xiaoy.io  --skip-go-version-check
+go mod tidy
+kubebuilder create api --group myoperator1 --version v1 --kind Operator1Service
+# create Resource [y]   create Controller [y]
+
+# 安装kubebuilder3.0好像没有报错，环境有关。可能会报错 go vet ./... 的时候，需要 go mod tidy 重新执行 go vet ./... && go build -o bin/manager main.go
+go mod vendor
+
+# modify xxx_types.go
+## Operator1ServiceSpec
+### OperatorAdditionField string `json:"operatoradditionfield,omitempty"`
+# 修改 types文件后需要执行 make manifests generate       (这里会调用kustomize 命令，如果kustomize版本不对，可能会报错 kubebuilder Error: loadResMapFromBasesAndResources: rawResources failed to read Resources: Missing metadata.name in object {map[]})
+make manifests generate
+# 
+go mod tidy
+go mod vendor
+make install && make run
+------------------------------------------------------------
+************************************************************

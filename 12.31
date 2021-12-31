@@ -1,0 +1,19 @@
+> TODO
+	>> 代码生成器 kubebuilder 
+	>> controller runtime
+	>> protobuf 生成yaml
+	>> operator 根据yaml实现对 crd 中cr进行crud
+
+	>> apiserver + operator 环境部署
+	>> controller 怎么连接到 apiserver
+
+> TODO
+	>> 代码生成器 kubebuilder 
+	>> controller runtime
+	
+	>> protobuf 生成yaml
+	>> operator 根据yaml实现对 crd 中cr进行crud
+
+	>> apiserver + operator 环境部署
+	
+

@@ -1,0 +1,10 @@
+> kubectl 默认读取 ~/.kube/config 文件作为默认配置
+
+> kubebuilder 3.0安装
+	>> wget https://github.com/kubernetes-sigs/kubebuilder/releases/download/v3.0.0/kubebuilder_linux_amd64
+	>> 如果比较慢使用idm下载
+
+> kubebuilder 与apiserver之间有版本问题，需要 apiserver1.16以上https://github.com/operator-framework/operator-lifecycle-manager/issues/1818
+
+
+

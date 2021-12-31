@@ -9,10 +9,6 @@
 		>>> 按照处理类型的不同，一般可以将其分为两类：一类可能会修改传入对象，称为 mutating webhook；一类则会只读传入对象，称为 validating webhook
 	>> 工作队列: controller 的核心组件。它会监控集群内的资源变化，并把相关的对象，包括它的动作与 key，例如 Pod 的一个 Create 动作，作为一个事件存储于该队列中；
 
-
-> 使用原生进行operator开发
-> kubebuilder operator
-
 > k8s yaml 部署服务
 	>> nginx https://zhuanlan.zhihu.com/p/265997618
 

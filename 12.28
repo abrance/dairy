@@ -1,0 +1,98 @@
+> makefile
+	>> make $target
+		>>> 如果target为空，则执行第一个目标，一般是all
+		>>> 如果不为空，执行 $target下的命令
+
+> go tag omitempty
+	>> omitempty的解释和陷阱   https://www.jianshu.com/p/a2ed0d23d1b0
+	>> 指定了omitempty  缺省时不采用默认值而是去掉这个字段
+
+> tree
+	>> -I $file_or_dir排除这个文件或目录
+
+> kustomize 3.0安装
+	>> GOBIN=$(pwd)/ GO111MODULE=on go get sigs.k8s.io/kustomize/kustomize/v3
+
+> GV & GVK & GVR
+	>> GV: group and version
+		Api Group 是相关 API 功能的集合
+		每个 Group 拥有一或多个 Versions
+	>> GVK: group and version and kind
+		每个 GV 都包含 N 个 api 类型，称之为 Kinds，不同 Version 同一个 Kinds 可能不同
+	>> GVR: group and version and resource
+		Resource 是 Kind 的对象标识，一般来 Kind 和 Resource 是 1:1 的，但是有时候存在 1:n 的关系，不过对于 Operator 来说都是 1:1 的关系
+	>> 根据 GVK K8s 就能找到你到底要创建什么类型的资源，根据你定义的 Spec 创建好资源之后就成为了 Resource，也就是 GVR。GVK/GVR 就是 K8s 资源的坐标，是我们创建/删除/修改/读取资源的基础
+
+> kubebuilder controller简单实践
+	>> kubebuilder 简单实践  http://lailin.xyz/post/operator-03-kubebuilder-tutorial.html
+	>> 环境
+		 kustomize 3.0
+		 go        1.17
+		 k8s       1.15
+************************************************************
+history
+------------------------------------------------------------
+mkdir operator1 && cd operator1
+go mod init xiaoy.io/operator1
+kubebuilder init --domain xiaoy.io  --skip-go-version-check
+go mod tidy
+kubebuilder create api --group myoperator1 --version v1 --kind Operator1Service
+# create Resource [y]   create Controller [y]
+
+# 安装kubebuilder3.0好像没有报错，环境有关。可能会报错 go vet ./... 的时候，需要 go mod tidy 重新执行 go vet ./... && go build -o bin/manager main.go
+go mod vendor
+
+# modify xxx_types.go
+## Operator1ServiceSpec
+### OperatorAdditionField string `json:"operatoradditionfield,omitempty"`
+# 修改 types文件后需要执行 make manifests generate       (这里会调用kustomize 命令，如果kustomize版本不对，可能会报错 kubebuilder Error: loadResMapFromBasesAndResources: rawResources failed to read Resources: Missing metadata.name in object {map[]})
+make manifests generate
+# 
+go mod tidy
+go mod vendor
+make install && make run
+------------------------------------------------------------
+************************************************************
+	>> 测试
+		>>> 获取crd
+		kubectl get crd
+		kubectl describe crd $crd_name
+		>>> etcd 查看
+		etcdctl get / --prefix --keys-only | grep  /registry/apiextensions.k8s.io/customresourcedefinitions/
+		etcdctl get $api_url -w fields
+
+> go runtime
+	>> 概念
+		>>> go 语言运行的基础涉及
+			协程调度 内存分配 GC
+			OS CPU相关操作的封装（信号处理 系统调用 寄存器操作 原子操作） CGO
+			pprof trace race检测的支持
+			map channel string 内置类型和反射的实现
+
+			涉及关键字
+			go new make <- -> 的实现
+
+	>> 常用函数
+		runtime 调度器是个非常有用的东西，关于 runtime 包几个方法:
+
+		NumCPU：返回当前系统的 CPU 核数量
+		GOMAXPROCS：设置最大的可同时使用的 CPU 核数
+		通过runtime.GOMAXPROCS函数，应用程序何以在运行期间设置运行时系统中得P最大数量。但这会引起“Stop the World”。所以，应在应用程序最早的调用。并且最好是在运行Go程序之前设置好操作程序的环境变量GOMAXPROCS，而不是在程序中调用runtime.GOMAXPROCS函数。
+		无论我们传递给函数的整数值是什么值，运行时系统的P最大值总会在1~256之间。
+		go1.8后，默认让程序运行在多个核上,可以不用设置了
+		go1.8前，还是要设置一下，可以更高效的利益cpu
+		Gosched：让当前线程让出 cpu 以让其它线程运行,它不会挂起当前线程，因此当前线程未来会继续执行
+		这个函数的作用是让当前 goroutine 让出 CPU，当一个 goroutine 发生阻塞，Go 会自动地把与该 goroutine 处于同一系统线程的其他 goroutine 转移到另一个系统线程上去，以使这些 goroutine 不阻塞。
+		Goexit：退出当前 goroutine(但是defer语句会照常执行)
+		NumGoroutine：返回正在执行和排队的任务总数
+		runtime.NumGoroutine函数在被调用后，会返回系统中的处于特定状态的Goroutine的数量。这里的特指是指Grunnable\Gruning\Gsyscall\Gwaition。处于这些状态的Groutine即被看做是活跃的或者说正在被调度。
+		注意：垃圾回收所在Groutine的状态也处于这个范围内的话，也会被纳入该计数器。
+		GOOS：目标操作系统
+		runtime.GC：会让运行时系统进行一次强制性的垃圾收集
+		1.强制的垃圾回收：不管怎样，都要进行的垃圾回收。2.非强制的垃圾回收：只会在一定条件下进行的垃圾回收（即运行时，系统自上次垃圾回收之后新申请的堆内存的单元（也成为单元增量）达到指定的数值）。
+		GOROOT：获取goroot目录
+		GOOS : 查看目标操作系统 很多时候，我们会根据平台的不同实现不同的操作，就而已用GOOS了
+		
+> k8s tag
+	>> 实现
+		>>> 顶层的makefile.generated_files 中会找出所有 存在tag的文件放入到todo 临时文件中，然后调用
