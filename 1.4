@@ -1,0 +1,79 @@
+> TODO
+	>> operator 如何对etcd进行管理
+	>> envoy 
+
+> operator 开发资料
+	>> etcd    https://app.yinxiang.com/fx/5421f912-3bd1-4c50-aa5f-efcad6aac7b1
+	>> yaml    https://app.yinxiang.com/fx/3aeea931-192e-406c-a2bb-a4dcfadf4f0f
+	>> kubectl 简单使用 https://app.yinxiang.com/fx/c7013be0-c290-468f-8b5b-fc03b65e6656
+
+> curl
+	>> -L --location      Follow redirects (H) 跟进重定向
+
+
+> systemd 中多执行参数使用环境变量进行导入
+************************************************************
+miniserve.service
+------------------------------------------------------------
+Description=MINISERVE FILE TRANSPORT
+
+[Service]
+EnvironmentFile=/opt/software/miniserve.conf
+ExecStart=/usr/local/bin/miniserve $MINISERVE_OPT
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+------------------------------------------------------------
+miniserve.conf
+------------------------------------------------------------
+MINISERVE_OPT="--auth team:O2341 \
+-u \
+--title gw-team \
+-p 12800 \
+/data"
+------------------------------------------------------------
+************************************************************
+
+runtime
+> runtime 是运行时的环境
+
+> configmap
+	>> configmap 解决动态下发配置问题
+
+service mesh 服务网格
+> envoy 对service mesh 最大的贡献就是定义了xds，envoy本质上是一个proxy但是他的配置协议被众多开源软件支持，如istio、linkerd、aws、App mesh、SOFA mesh
+> sidecar 模式基于将控制与逻辑分离和解耦的思想。业务代码专注业务逻辑，其他事情，sidecar负责处理如日志记录、监控、流量控制、服务注册、服务发现、服务限流、熔断、鉴权、访问控制和服务调用可视化，本质上和业务服务的关系不大的功能。
+istio service mesh 把k8s 看作服务注册机构，通过控制平面生成数据平面的配置，数据平面的透明代理以 sidecar 容器的方式部署在每个应用服务的Pod中。之所以说是透明代理，是因为应用程序容器完全无感知代理的存在。区别在于kube-proxy 拦截的是进出k8s 节点的流量，而istio sidecar 拦截的是进出该pod的流量。
+
+istio
+> 提供微服务链接的、安全的、流量控制的和可观察性的开放平台。
+> istio 分为两个平面：数据平面和控制平面
+	>> 数据平面和一组sidecar的代理（envoy）组成。这些代理调节和控制微服务之间的所有网络通信，并且与控制平面的Mixer通信，接受调度策略。
+	>> 控制平面通过管理和配置envoy管理流量。此外，控制平面配置Mixers来实施路由策略并收集检测到的监控数据
+
+envoy
+> lyft开源的一个用C++ 开发的高性能代理，用于管理service mesh 中所有服务的所有入栈和出站流量。envoy从功能上看是一个类似于Nginx的七层代理，但更加贴近service mesh的使用场景。istio利用了envoy的许多内置功能。例如：
+	动态服务发现；
+	负载均衡
+	tls终止
+	http/2 和grpc代理
+	断路器
+	健康检查流量分割
+	故障注入
+	监控指标
+
+> Pilot
+	>> 用于配置envoy提供服务发现、流量管理（A/B 测试，金丝雀部署）、异常控制（超时、重试、熔断）
+
+> Mixer
+	>> Minxer 是一个独立于平台的组件，负责在整个service mesh 中执行访问控制和使用策略，并通过envoy代理和其他服务手机监控到的数据
+
+> citadel
+	>> 通过内置身份和凭证管理，提供服务和用户的身份验证，可以用来升级service mesh 中的未加密流量
+	
+	
+> client-go 操作apiserver
+	>> https://github.com/xwisen/mtk8/blob/bac4b201c3/controllers/deployment.go
+
+
