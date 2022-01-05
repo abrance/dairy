@@ -1,0 +1,224 @@
+> xDS 协议
+	>> 以 Istio 中 Pilot 为例，当 Pilot 发现新的服务或路由规则被创建（通过监控 Kubernetes 集群中特定 CRD 资源变化、或者发现 Consul 服务注册和配置变化），Pilot 会通过已经和 Envoy 之间建立好的 GRPC 流将相关的配置推送到 Envoy。Envoy 接收到相关配置并校验无误之后，就会动态的更新运行时配置，使用新的配置更新相关资源。资源本身是很抽象的概念，本小节为了方便统一介绍而使用资源二字代指 Envoy 根据相关配置创建出来的具有某种特定功能或者目的的实体，前文中的监听器、集群、路由以及筛选器就是 Envoy 最为核心的四种资源。针对不同类型的资源，Envoy 提供了不同的 xDS API，包括 LDS、CDS、RDS等等。
+
+
+> kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v1.15.0/src/deploy/recommended/kubernetes-dashboard.yaml
+
+
+[root@localhost opt]# kubectl create serviceaccount dashboard
+[root@localhost opt]# kubectl create rolebinding def-ns-admin --clusterrole=admin --serviceaccount=default:def-ns-admin
+[root@localhost opt]# kubectl create clusterrolebinding dashboard-cluster-admin --clusterrole=cluster-admin --serviceaccount=kubernetes-dashboard:dashboard
+
+
+> k8s dashboard部署
+	>> dashboard 需要对应k8s版本  dashboard:v2.0.0-beta4 -> k8s 1.15.0
+	>> k8s 1.15.0 部署dashboard   https://blog.csdn.net/jthello123/article/details/105719993
+	>> dashboard 鉴权问题解决方案https://www.cnblogs.com/xulingjie/p/10101321.html
+  >> k8s label                   https://blog.csdn.net/m0_45406092/article/details/118864907
+************************************************************
+dashboard.yml
+------------------------------------------------------------
+kind: Deployment
+apiVersion: apps/v1beta2
+metadata:
+  labels:
+    k8s-app: kubernetes-dashboard
+  name: kubernetes-dashboard
+  namespace: kube-system
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      k8s-app: kubernetes-dashboard
+  template:
+    metadata:
+      labels:
+        k8s-app: kubernetes-dashboard
+    spec:
+      containers:
+      - name: kubernetes-dashboard
+        image: k8s.gcr.io/kubernetes-dashboard-amd64:v1.10.0
+        ports:
+        - containerPort: 8443
+          protocol: TCP
+        args:
+          - --auto-generate-certificates
+        volumeMounts:
+        - name: kubernetes-dashboard-certs
+          mountPath: /certs
+        - mountPath: /tmp
+          name: tmp-volume
+        livenessProbe:
+          httpGet:
+            scheme: HTTPS
+            path: /
+            port: 8443
+          initialDelaySeconds: 30
+          timeoutSeconds: 30
+      volumes:
+      - name: kubernetes-dashboard-certs
+        secret:
+          secretName: kubernetes-dashboard-certs
+      - name: tmp-volume
+        emptyDir: {}
+      serviceAccountName: kubernetes-dashboard
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: kubernetes-dashboard
+  name: kubernetes-dashboard
+  namespace: kube-system
+spec:
+  type: NodePort
+  ports:
+    - port: 443
+      targetPort: 8443
+      nodePort: 30001
+  selector:
+    k8s-app: kubernetes-dashboard					
+------------------------------------------------------------
+
+dashboard-sa.yml
+------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: kubernetes-dashboard
+  labels:
+    k8s-app: kubernetes-dashboard
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: kubernetes-dashboard
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: kubernetes-dashboard-head
+  labels:
+    k8s-app: kubernetes-dashboard-head
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: kubernetes-dashboard-head
+  namespace: kube-system
+------------------------------------------------------------
+************************************************************
+
+> 获取token
+************************************************************
+shell 
+------------------------------------------------------------
+kubectl get secrets -A
+kubectl describe secret $secret_name -n kube-system
+------------------------------------------------------------
+************************************************************
+
+
+> gloo
+	>> gloo 简要介绍https://www.cnblogs.com/zhongwencool/p/gloo_overview.html
+	>> 架构Gloo通过Envoy XDS gRPC API来动态更新Envoy配置, 更方便的控制Envoy Proxy, 并保留扩展性..本质是一个Envoy xDS配置翻译引擎, 为Envoy提供高级配置(及定制的Envoy过滤器).它监控各种配置源的更新,并立即响应通过gRPC更新给Envoy
+	>> 组件：
+		>>> Config Watcher: 监控Upstreams和Virtual Services配置变化.
+		>>> Secret Watcher: 监控敏感信息的配置变化,比如SSL配置信息.
+		>>> Reporter:会收集翻译引擎处理的所有Upstream及Vritual service验证报告.任何无效的配置对象都会反馈给用户.无效的对象会被标记为"Rejected",并在用户配置中给出详细的错误信息.
+		>>> Endpoint Discovery: 服务注册和自动发现.
+		如上图kubenetes的Upstream自动发现机制: 通过自己的插件把注册信息写到Endpoint Discovery中,然后Gloo监控它变化,并把这些信息通过自己翻译引擎(Translation Engine)成一个完整的xDS Server快照,传给Envoy,让他构建这个服务的路由规则及过滤器设置.
+
+> gloo 概念
+	>> Virtual Services
+		>>> 将一组路由规则规范在某个或多个域(domains)下面.
+		>>> Gloo会建一个默认的virtualService是 default, 它会和*域名匹配.这会把header中没有Host(:authority)字段的请求,及那些不会找不到路由的请求都路由到这个域下面.
+		>>> VirtualService都在同一个Gloo必须是唯一的,否则找不到路由.
+		>>> 绝大多数实例使用中,让所有路由都放在一个VirtualService下就足够了,Gloo也会使用同一套路由规则来处理请求.如果只有一个VirtualServics时,会忽略header中的Host或:authority头部信息
+	>> Routes
+		>>> Routes是VritualServices的核心组成.如果请求与路由上的matcher匹配了,那么它就把请求路由到对应的目的地上.路由由一系列的匹配规则(a list of matchers)及各种目的地组成.
+			>>>> a single destination 一个目地的.
+			>>>> a list of weighted destinations 一组有权重的目地的.
+			>>>> **an upstream group ** 一组upstream.
+		>>> 因为多个matcher可以匹配一个请求,所以路由的先后顺序很重要.Gloo会选择第一个与请求匹配的路由.所以必须把匹配任何路径(像自定义的404页面)请求,放在路由列表的最后面
+	>> Matchers
+		Matchers支持2种请求类型
+		>>> HTTP requests中的请求属性: 对HTTP 来说就是: path, method, header, query parameters, 对应的HTTP2.0 就是header中的:path, :method属性
+		>>> HTTP events根据CloudEvents规范匹配HTTP事件属性.但CloudEvents 规范还处于 0.2 版本，将来会有更改。Event Matcher目前唯一匹配的属性是事件的事件类型（由 x-event-type 请求头指定)
+	>> Destinations
+		>>> 匹配路由后,要将请求转发到Destinations,它可指向单一的目的地,也可以将路由流量分成到一系列加权的目地的上(a series of weighted destinations)
+		>>> Desinations可以是Upstream destination也可以是Function destination
+		>>> Upstream destination类似于Evnoy集群
+		>>> Function destination: Gloo支持将请求路由到各种Upstream中的函数中.函数可以是无服务器的函数调用(Lambda, Google Cloud Function)也可以是REST API OPENAPI, XML/SOAP请求.还可以发布到消息队列中
+	>> Upstreams
+		>>> Upstreams定义了路由规则最终去向(Destinations).一般是通过服务发现(services discovery)自动加入,最基本的Upstream类型就是静态的Upstream: 它只需要告诉Gloo一个静态主机或dns名列表.复杂的Upstream有kubernets及AWS lambda upstream
+************************************************************
+sample-upstream.yml
+------------------------------------------------------------
+apiVersion: gloo.solo.io/v1
+kind: Upstream
+metadata: 
+  labels:
+    discovered_by: kubernetesplugin
+  name: default-redis-6379
+  namespace: gloo-system
+spec:
+  discoveryMetadata: {}
+  kube:
+    selector:
+      gloo: redis
+    serviceName: redis
+    serviceNamespace: gloo-system
+    servicePort: 6379
+status:
+  reported_by: gloo
+  state: 1 # Accepted
+------------------------------------------------------------
+************************************************************
+		>>> name: 如何在Gloo中找到这个upstream.是一个标识符
+		>>> spec: kubernetes插件的serviceName,serviceNamespaces,Gloo路由时需要用到
+	>> Functions
+		>>> 有些Upstream支持函数destinations, 比如: 我们可以在Upstream中添加一些HTTP函数.让Gloo根据这些函数把检验请求参数,然后将传入的请求格式化为Upstream服务所期望的参数.一个简单的示例
+************************************************************
+sample-function.yml
+------------------------------------------------------------
+apiVersion: gateway.solo.io/v1
+kind: VirtualService
+metadata:
+  name: default
+  namespace: default
+spec:
+  virtualHost:
+    domains:
+    - '*'
+    routes:
+    - matchers:
+       - prefix: /petstore/findWithId
+      routeAction:
+        single:
+          destinationSpec:
+            rest:
+              functionName: findPetById
+              parameters:
+                headers:
+                  :path: /petstore/findWithId/{id}
+          upstream:
+            name: petstore
+            namespace: gloo-system
+      options:
+        prefixRewrite: /api/pets
+------------------------------------------------------------
+************************************************************
+		>>> 调用curl http://url/petstore/findWithId/100会路由到函数findPetById(id)中,其中Id的是通过parameters中的规则赋值的
+	>> Secrets
+		>>> 某些插件(如AWS Lambda Plugin)需要使用secrets来进行身份验证,配置SSL证书和其它不应该存储在明文配置的数据
+		>>> Gloo运行一个独立的(gorutine)控制器来保护Secrets.它有自己的storage layer
