@@ -1,0 +1,160 @@
+> TODO
+> 环境
+  >> 临时文件存储服务器 ：http://192.192.100.41:12800
+    >>> 账密：team/OURYUN
+    >>> 目录结构
+      k8s   k8s书籍
+      work  项目文档和用例
+      bin   项目中用到的二进制文件，github网速慢所以迁移到这里
+      go    go语言学习书籍
+  >> 192.192.100.57 root/123456              k8s环境
+  >> 192.192.100.59  root/k8S@OURYUN.COM     apiserver环境
+  >> 192.192.100.60  root/k8S@OURYUN.COM     apiserver环境
+  >> 192.192.100.61  root/k8S@OURYUN.COM     apiserver环境
+    >>> apisever 进程 systemctl status kube-apiserver
+    >>> etcd     进程 systemctl status etcd
+  >> AD平台：https://172.16.89.88    admin/ouryun@123
+  >> dashboard地址 https://192.192.100.57:30001/ token查看群聊天记录
+	
+> 开发资料
+  >> operator开发必要知识
+    >>> k8s
+        解决什么问题，集群的组成master的组成 https://app.yinxiang.com/fx/a03510ec-e792-45e0-8662-e7f80d5f3410
+    >>> apiserver
+        组件 功能           https://app.yinxiang.com/fx/089ac581-ad26-404e-b2ea-995f82199803
+    >>> informer机制
+        https://app.yinxiang.com/fx/0d90fb90-9daa-4a6c-82d0-028e4e3897c0
+        详解http://192.192.100.41:12800/work/informer.pdf
+    >>> controller介绍     https://app.yinxiang.com/fx/b0706e47-b0b0-4d29-8a80-05ff3f625db2
+    >>> operator
+        介绍和简单实现                https://app.yinxiang.com/fx/e3deb39e-5e2c-4175-a3ef-1317142f2bf6
+        operator简单用例压缩包       http://192.192.100.41:12800/work/operator-sample.tar.gz
+    >>> apiserver 环境搭建  https://app.yinxiang.com/fx/2351220b-8da2-4ac3-8cf0-f1be11d0c002
+  >> 附加知识
+    >>> etcd    https://app.yinxiang.com/fx/5421f912-3bd1-4c50-aa5f-efcad6aac7b1
+    >>> yaml    https://app.yinxiang.com/fx/3aeea931-192e-406c-a2bb-a4dcfadf4f0f
+    >>> kubectl 简单使用 https://app.yinxiang.com/fx/c7013be0-c290-468f-8b5b-fc03b65e6656
+    >>> operator webhook 开发 https://www.cnblogs.com/vpc123/articles/14479709.html
+    >>> k8s 环境部署   http://192.192.100.41:12800/k8s/%E6%90%AD%E5%BB%BA%E4%B8%80%E5%A5%97%E5%AE%8C%E6%95%B4%E7%9A%84K8s%E9%9B%86%E7%BE%A4v1.20%E7%89%88%E6%9C%ACGZ.zip
+    >>> controller-manager https://app.yinxiang.com/fx/a6d7e0b1-46e9-40d8-b4e8-d4f89dc54aa8
+    >>> docker搭建etcd 集群  https://app.yinxiang.com/fx/fd346562-6048-492b-bc67-072bc15b7cba
+    >>> dashboard 部署     https://app.yinxiang.com/fx/2dc91409-09cf-4c91-9be6-5fb3b16d322b
+    >>> kubebuilder 学习   https://cloudnative.to/kubebuilder
+    >>> gloo学习          https://docs.solo.io/gloo-edge/latest/introduction/
+    >>> envoy 学习         https://www.envoyproxy.io/
+
+> operator 开发需要的资料
+	>> k8s介绍 https://app.yinxiang.com/fx/a03510ec-e792-45e0-8662-e7f80d5f3410
+	>> operator 介绍与开发
+		>>> https://app.yinxiang.com/fx/e3deb39e-5e2c-4175-a3ef-1317142f2bf6
+  >> etcd    https://app.yinxiang.com/fx/5421f912-3bd1-4c50-aa5f-efcad6aac7b1
+  >> yaml    https://app.yinxiang.com/fx/3aeea931-192e-406c-a2bb-a4dcfadf4f0f
+  >> kubectl 简单使用 https://app.yinxiang.com/fx/c7013be0-c290-468f-8b5b-fc03b65e6656
+  >> informer 机制
+  	>>> https://app.yinxiang.com/fx/0d90fb90-9daa-4a6c-82d0-028e4e3897c0
+	  >>> http://192.192.100.41:12800/work/informer.pdf
+	>> apiserver搭建文档
+		>>> https://app.yinxiang.com/fx/2351220b-8da2-4ac3-8cf0-f1be11d0c002
+	>> controller介绍 https://app.yinxiang.com/fx/b0706e47-b0b0-4d29-8a80-05ff3f625db2
+
+> operator 开发用例介绍
+	>> 初始化项目目录
+	>> 目录结构
+  drwxr-xr-x.  8 root root   218 Jan 10 11:27 .
+  drwxr-xr-x.  4 root root    72 Jan 10 11:47 ..
+  drwx------.  3 root root    16 Jan 10 11:13 api
+  drwxr-xr-x.  2 root root    45 Jan 10 11:31 bin
+  drwx------.  8 root root    92 Jan 10 11:13 config
+  drwx------.  2 root root    65 Jan 10 11:26 controllers
+  -rw-------.  1 root root   791 Jan 10 11:11 Dockerfile
+  -rw-------.  1 root root   151 Jan 10 11:11 .dockerignore
+  -rw-------.  1 root root   367 Jan 10 11:11 .gitignore
+  -rw-r--r--.  1 root root   238 Jan 10 11:13 go.mod
+  -rw-r--r--.  1 root root 62658 Jan 10 11:11 go.sum
+  drwx------.  2 root root    32 Jan 10 11:11 hack
+  -rw-------.  1 root root  3233 Jan 10 11:27 main.go
+  -rw-------.  1 root root  4443 Jan 10 11:11 Makefile
+  -rw-------.  1 root root   299 Jan 10 11:13 PROJECT
+  drwxr-xr-x. 11 root root   199 Jan 10 11:14 vendor
+
+> tar
+	>> tar zxvf target.tar.gz            解压缩 tar.gz
+	>> tar zcvf target.tar.gz /target/   压缩   target目录输出target.tar.gz
+
+> operator 简单实践
+************************************************************
+history
+------------------------------------------------------------
+# 下面步骤为实现一个operator，
+# 如果前五步出错，为kubebuilder go版本问题
+mkdir operator1 && cd operator1
+go mod init xiaoy.io/operator1
+kubebuilder init --domain xiaoy.io  --skip-go-version-check
+kubebuilder create api --group myoperator1 --version v1 --kind Operator1Service
+go mod vendor
+# 这时修改 xxx_type.go   自定义字段 product，重新生成crd
+make manifests generate
+# 这时修改 operator1service_controller.go 文件 Reconcile函数添加逻辑   r.Log.Info("app changed", "ns", req.Namespace) 为打印namespace逻辑
+# make install 会将crd注册到apiserver，make run 将运行 controller处理crd下的资源
+# controller默认使用8080端口，如果需要配置接口，可以直接修改main.go 代码 8080端口改为自定义的即可
+make install && make run
+# 运行controller后，应用一个cr测试 controller是否生效，另起bash执行
+kubectl apply -f myoperator1_v1_operator1service.yaml
+# 执行成功后，可以看到controller运行日志中打印了
+# INFO    controllers.Operator1Service    app changed     {"ns": "default"}
+# 可以使用etcdctl命令获取此cr对象
+------------------------------------------------------------
+
+myoperator1_v1_operator1service.yaml
+------------------------------------------------------------
+apiVersion: myoperator1.xiaoy.io/v1
+kind: Operator1Service
+metadata:
+  name: operator1service-sample
+spec:
+  # Add fields here
+  product: myproductmyproductmyproductmyproductmyproductmyproductmyproduct
+------------------------------------------------------------
+************************************************************
+
+> operator 数据流向图
+************************************************************
+------------------------------------------------------------
+cr:  custom resource
+crd: custom resource definition
+    ┌─────┐
+    │ web │
+    └──┬──┘
+       │
+      2│post cr
+       │
+       ▼       1.register crd and watch ┌────────────────┐
+  ┌───────────┐ ◄───────────────────────┤                │
+  │apiserver  ├───────────────────────► │  operator      │
+  └────┬──────┘3.inform                 │                │
+       │                                │  ┌───────────┐ │
+       │                                │  │ controller│ │
+       ▼                                │  │ 4.handle  │ │
+┌──────────────┐                        │  └───────────┘ │
+│ etcd cluster │                        │                │
+└──────────────┘                        └────────────────┘
+------------------------------------------------------------
+************************************************************
+
+> apiserver 的组成
+	>> https://blog.csdn.net/qq_17305249/article/details/105639029
+	>> apiserver 由 3 个组件构成（AggregatorServer、APIServer、APIExtensionServer）
+	AggregatorServer：实现请求的代理转发，将来自用户的请求拦截转发给其他服务器，并且负责整个 APIServer 的服务发现功能
+	APIServer：负责对内建资源对象请求的一些处理，包括认证、鉴权等，以及处理各个内建资源的 REST 服务
+	APIExtensionServer：主要处理自定义资源对象（CR、CRD）的请求
+
+> Paas Saas Iaas
+	>> https://zhuanlan.zhihu.com/p/276054509
+
+> 顺序
+	>> go
+	>> docker
+	>> k8s crd 命令
+	>> kubebuilder
+	
+
