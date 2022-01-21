@@ -1,0 +1,89 @@
+> TODO
+	>> solo-kit使用
+> webhook 简单实践
+************************************************************
+history
+------------------------------------------------------------
+# 对接上次的operator1 目录继续开发webhook
+cd operator1
+kubebuilder create webhook --group myoperator1 --version v1 --kind Operator1Service --defaulting --programmatic-validation
+
+# 创建webhook相关文件
+#   ├── api
+#   │   └── v1
+#   │       ├── groupversion_info.go
+#   │       ├── Operator1Service_types.go
+# + │       ├── Operator1Service_webhook.go # 在这里实现 webhook 的相关接口
+# + │       ├── webhook_suite_test.go # webhook 测试
+#   │       └── zz_generated.deepcopy.go
+#   ├── bin
+#   ├── config
+# + │   ├── certmanager # 用于部署
+#   │   ├── crd
+#   │   │   ├── bases
+#   │   │   │   └── myoperator1.xiaoy.io_Operator1Services.yaml
+#   │   │   ├── kustomization.yaml
+#   │   │   ├── kustomizeconfig.yaml
+#   │   │   └── patches
+#   │   │       ├── cainjection_in_Operator1Services.yaml
+# + │   │       └── webhook_in_Operator1Services.yaml
+#   │   ├── default
+#   │   │   ├── kustomization.yaml
+#   │   │   ├── manager_auth_proxy_patch.yaml
+#   │   │   ├── manager_config_patch.yaml
+# + │   │   ├── manager_webhook_patch.yaml
+# + │   │   └── webhookcainjection_patch.yaml
+#   │   ├── manager
+#   │   ├── prometheus
+#   │   ├── rbac
+#   │   ├── samples
+#   │   │   └── myoperator1_v1_Operator1Service.yaml
+# + │   └── webhook # webhook 部署配置
+#   ├── controllers
+#   ├── main.go
+
+实现逻辑
+实现 MutatingAdmissionWebhook 接口
+实现 Default 方法
+
+实现 ValidatingAdmissionWebhook 接口
+ValidateCreate...
+------------------------------------------------------------
+************************************************************
+
+
+> HCM 层的配置需要加一层排序，所以gloo层中 httplisternoption里，加载的是gloo层对象，框架将配置进行下发。VH层加载的是envoy配置对象。
+> 版本使用最新版
+> gloo在安装时输入了一个helm 配置，我们自己注入一个crd
+
+> X-Frame-Options
+	>> 所述X-Frame-OptionsHTTP 响应报头可以被用来指示一个浏览器是否应该被允许在一个以呈现页面<frame>，<iframe>或<object>。通过确保其内容未嵌入其他网站，网站可以使用此功能来避免 点击劫持 攻击
+************************************************************
+# X-Frame-Options有三种可能的指示
+------------------------------------------------------------
+X-Frame-Options: DENY
+X-Frame-Options: SAMEORIGIN
+X-Frame-Options: ALLOW-FROM https://example.com/
+------------------------------------------------------------
+************************************************************
+
+> django csrf token
+	>> django csrf 实现https://www.jianshu.com/p/ef700efe18f6
+	>> 全局：
+	中间件 django.middleware.csrf.CsrfViewMiddleware
+	>> 局部：
+	from django.views.decorators.csrf import csrf_exempt,csrf_protect
+	@csrf_protect，为当前函数强制设置防跨站请求伪造功能，即便settings中没有设置全局中间件。
+	@csrf_exempt，取消当前函数防跨站请求伪造功能，即便settings中设置了全局中间件。
+
+> makefile 中 $@ $^ %< 使用
+	>> https://blog.csdn.net/kesaihao862/article/details/7332528?spm=1001.2101.3001.6650.1&utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7ECTRLIST%7Edefault-1.no_search_link&depth_1-utm_source
+
+> protobuf
+	>> 基础
+	messsage -> struct
+	package  -> package
+
+> go protobuf 和grpc快速上手
+	>> https://zhuanlan.zhihu.com/p/372795989
+

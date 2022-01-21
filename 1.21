@@ -1,0 +1,22 @@
+想实现一个功能：ip1 ip2 ip3
+http://ip1/ip2/ 可以访问 ip2 的服务
+http://ip1/ip3/ 可以访问 ip3 的服务
+
+upstream ip2 {
+	server ip2;
+}
+upstream ip3 {
+	server ip3;
+}
+server {
+	listen 80;
+	location ~ ^/ip2/ {
+		proxy_pass http://ip2;
+	}
+	location ~ ^/ip3/ {
+		proxy_pass http://ip3;
+	}
+}
+
+发现请求到 index.html 文件正常获取到，但是加载的时候 index.html 引用的 js css 都找不到，因为都访问到 ip1 下，这种问题，nginx 可以解决吗
+前端获取到index.html 时 引入js时，src=/ui/... 时，会直接访问 http://localhost/ui/... 直接访问到ip1 了，

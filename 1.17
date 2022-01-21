@@ -1,0 +1,29 @@
+
+> TODO
+	>> client.go 的使用(培训)
+	https://www.huweihuang.com/kubernetes-notes/develop/client-go.html
+	>> solo-kit  的培训
+	>> gloo      在apiserver下运行
+	>> jumpserver 完毕或交接
+
+> 保留近几天的备份
+	>> shell
+	http://www.linuxe.cn/post-395.html
+************************************************************
+#保留2份指定目录下文件名包含xtreasm的文件
+------------------------------------------------------------
+# *号用来显示绝对路径，不是绝对路径删不掉
+ls -t /data/tools/gitlab/backup/* | awk '$0~/backup/' | awk 'NR>5' | xargs rm -rf
+------------------------------------------------------------
+************************************************************
+
+> 安装protoc
+	idm 下载 protoc release ，解压后protoc放到 bin下即可
+	go install google.golang.org/protobuf/cmd/protoc-gen-go
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
+
+> profile 和 bashrc的区别
+	https://www.cnblogs.com/hongzg1982/articles/2101792.html
+	/etc/profile，/etc/bashrc 是系统全局环境变量设定
+	~/.profile，~/.bashrc用户家目录下的私有环境变量设定
+

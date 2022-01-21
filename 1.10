@@ -157,4 +157,19 @@ crd: custom resource definition
 	>> k8s crd 命令
 	>> kubebuilder
 	
-
+# 安装k8s 1.20
+************************************************************
+history
+------------------------------------------------------------
+# --service-cidr=10.96.0.0/12 --pod-network-cidr="10.244.0.0/16" 这两个是固定的
+yum -y install kubeadm-1.20.8 kubelet-1.20.8 kubectl-1.20.8
+kubeadm init \
+--image-repository registry.aliyuncs.com/google_containers \
+--kubernetes-version="1.20.8" \
+--service-cidr=10.96.0.0/12 \
+--pod-network-cidr="10.244.0.0/16" \
+--apiserver-advertise-address 10.0.20.16 \
+--control-plane-endpoint 10.0.20.16 \
+--token-ttl 0
+------------------------------------------------------------
+************************************************************

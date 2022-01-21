@@ -1,0 +1,107 @@
+> go generate
+	>> http://c.biancheng.net/view/4442.html
+	>> go generate注意：
+	该特殊注释必须在 .go 源码文件中；
+	每个源码文件可以包含多个 generate 特殊注释；
+	运行go generate命令时，才会执行特殊注释后面的命令；
+	当go generate命令执行出错时，将终止程序的运行；
+	特殊注释必须以//go:generate开头，双斜线后面没有空格。
+	>> 在下面这些场景下，我们会使用go generate命令：
+	yacc：从 .y 文件生成 .go 文件；
+	protobufs：从 protocol buffer 定义文件（.proto）生成 .pb.go 文件；
+	Unicode：从 UnicodeData.txt 生成 Unicode 表；
+	HTML：将 HTML 文件嵌入到 go 源码；
+	bindata：将形如 JPEG 这样的文件转成 go 代码中的字节数组。
+	>> 参数
+	-run 正则表达式匹配命令行，仅执行匹配的命令；
+	-v 输出被处理的包名和源文件名；
+	-n 显示不执行命令；
+	-x 显示并执行命令；
+	command 可以是在环境变量 PATH 中的任何命令
+************************************************************
+main.go
+------------------------------------------------------------
+package main
+
+import "fmt"
+
+//go:generate go run main.go
+//go:generate go version
+func main() {
+    fmt.Println("http://c.biancheng.net/golang/")
+}
+
+// go generate 后输出
+// go generate -x
+// go run main.go
+// http://c.biancheng.net/golang/
+// go version
+// go version go1.13.6 windows/amd64
+------------------------------------------------------------
+************************************************************
+
+************************************************************
+APIView
+------------------------------------------------------------
+    def dispatch(self, request, *args, **kwargs):
+        """
+        `.dispatch()` is pretty much the same as Django's regular dispatch,
+        but with extra hooks for startup, finalize, and exception handling.
+        """
+        self.args = args
+        self.kwargs = kwargs
+        request = self.initialize_request(request, *args, **kwargs)
+        self.request = request
+        self.headers = self.default_response_headers  # deprecate?
+
+        try:
+            self.initial(request, *args, **kwargs)
+
+            # Get the appropriate handler method
+            if request.method.lower() in self.http_method_names:
+                handler = getattr(self, request.method.lower(),
+                                  self.http_method_not_allowed)
+            else:
+                handler = self.http_method_not_allowed
+
+            response = handler(request, *args, **kwargs)
+
+        except Exception as exc:
+            response = self.handle_exception(exc)
+
+        self.response = self.finalize_response(request, response, *args, **kwargs)
+        return self.response
+
+    def initial(self, request, *args, **kwargs):
+        """
+        Runs anything that needs to occur prior to calling the method handler.
+        """
+        self.format_kwarg = self.get_format_suffix(**kwargs)
+
+        # Perform content negotiation and store the accepted info on the request
+        neg = self.perform_content_negotiation(request)
+        request.accepted_renderer, request.accepted_media_type = neg
+
+        # Determine the API version, if versioning is in use.
+        version, scheme = self.determine_version(request, *args, **kwargs)
+        request.version, request.versioning_scheme = version, scheme
+
+        # Ensure that the incoming request is permitted
+        self.perform_authentication(request)
+        self.check_permissions(request)
+        self.check_throttles(request)
+------------------------------------------------------------
+************************************************************
+
+
+************************************************************
+guacamole.sh
+------------------------------------------------------------
+docker run --name jms_guacamole -d \
+  -p 127.0.0.1:8081:8080 \
+  -e JUMPSERVER_SERVER=http://127.0.0.1:8080 \ 
+  -e BOOTSTRAP_TOKEN=nFOee5AkG8x9wqCw \
+  -e GUACAMOLE_LOG_LEVEL=DEBUG \
+  jumpserver/jms_guacamole:v2.4.0
+------------------------------------------------------------
+************************************************************

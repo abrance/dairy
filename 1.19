@@ -1,0 +1,20 @@
+三台服务器  192.168.1.1 192.168.2.1 192.168.2.2
+在192.168.1.1 里面配置nginx
+location ~* /192.168.2.1/(.*)$ {
+  proxy_pass http://192.168.2.1/$1
+}
+location ~* /192.168.2.2/(.*)$ {
+  proxy_pass http://192.168.2.2/$1
+}
+这样浏览器访问http://192.168.1.1/192.168.2.1/uri实际上访问到了 http://192.168.2.1/uri的资源，但是，192.168.2.1 和192.168.2.2 使用了cookie，岂不是会冲突吗？
+
+> 使用不同的域来隔离cookie的域
+
+
+> 生成TE镜像
+	从appstore里拉取一个有插件的envoy镜像
+	NodeGroup 新增字段 images   []Image
+> Node里面去掉field 心跳新增状态field，由webserver做心跳接受和监听并管理 这个状态
+> 主备故障切换就是，当webserver更新了主备相关field时，controller控制floatip给主...。
+> 
+	

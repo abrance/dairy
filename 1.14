@@ -1,0 +1,118 @@
+> TODO
+	jumpserver guacamole
+	solo-kit v2    demo
+	gloo code and picture
+
+> jumpserver guacamole dev
+	>> what
+	jumpserver use guacamole to implement windows rdp and vnc connection
+	guacamole client + guacamole server
+	client使用java
+	server使用C
+	>> HOW
+	use old version guacamole-server and guacamole-client  
+
+> firewall 规则
+	>> https://wangchujiang.com/linux-command/c/firewall-cmd.html
+	>> 开放端口
+	# 打开443/TCP端口
+	firewall-cmd --add-port=443/tcp
+	# 永久打开3690/TCP端口
+	firewall-cmd --permanent --add-port=3690/tcp
+	# 永久打开端口好像需要reload一下，临时打开好像不用，如果用了reload临时打开的端口就失效了
+	# 其它服务也可能是这样的，这个没有测试
+	firewall-cmd --reload
+	# 查看防火墙，添加的端口也可以看到
+	firewall-cmd --list-all
+	>> 开放服务
+  # 显示服务列表  
+	Amanda, FTP, Samba和TFTP等最重要的服务已经被FirewallD提供相应的服务，可以使用如下命令查看：
+	firewall-cmd --get-services
+	# 允许SSH服务通过
+	firewall-cmd --new-service=ssh
+	# 禁止SSH服务通过
+	firewall-cmd --delete-service=ssh
+	# 打开TCP的8080端口
+	firewall-cmd --enable ports=8080/tcp
+	# 临时允许Samba服务通过600秒
+	firewall-cmd --enable service=samba --timeout=600
+	# 显示当前服务
+	firewall-cmd --list-services
+	# 添加HTTP服务到内部区域（internal）
+	firewall-cmd --permanent --zone=internal --add-service=http
+	firewall-cmd --reload     # 在不改变状态的条件下重新加载防火墙
+	
+> centos7部署gitlab
+************************************************************
+deploy-gitlab.sh
+------------------------------------------------------------
+# 依赖
+yum install -y curl policycoreutils-python openssh-server
+#启动ssh服务&设置为开机启动
+systemctl enable sshd && systemctl start
+
+# 安装postfix 邮件服务器发送邮件
+yum install -y postfix
+systemctl enable postfix && systemctl start postfix
+
+curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.rpm.sh | sudo bash
+yum install -y gitlab-ce
+
+# 配置
+# vim /etc/gitlab/gitlab.rb
+# 配置仓库地址
+# external_url 'http://192.192.100.62'
+# 配置gitlab 邮箱
+# # 这里以QQ邮箱为例，配置QQ邮箱为发件邮箱
+# https://cloud.tencent.com/developer/article/1856895
+# gitlab_rails['smtp_enable'] = true
+# gitlab_rails['smtp_address'] = "smtp.qq.com"
+# gitlab_rails['smtp_port'] = 465
+# gitlab_rails['smtp_user_name'] = "你的QQ号@qq.com"
+# gitlab_rails['smtp_password'] = "QQ邮箱授权码"
+# gitlab_rails['smtp_domain'] = "smtp.qq.com"
+# gitlab_rails['smtp_authentication'] = "login"
+# gitlab_rails['smtp_enable_starttls_auto'] = true
+# gitlab_rails['smtp_tls'] = true
+# gitlab_rails['gitlab_email_from'] = "你的QQ号@qq.com"
+
+gitlab-ctl start
+# 重启配置 gitlab-ctl reconfigure
+# gitlab root初始密码 /etc/gitlab/initial_root_password 中
+# gitlab 备份
+# https://cloud.tencent.com/developer/article/1622317
+
+# 设置保护分支 https://www.cnblogs.com/mingerlcm/p/12602425.html
+------------------------------------------------------------
+************************************************************
+
+> crontab
+	>> 设置定时任务
+************************************************************
+history
+------------------------------------------------------------
+# 默认vim编辑 下面的意思是 每天 2:00 执行一次脚本 
+crontab -e  
+0 2 * * * sh $script
+------------------------------------------------------------
+************************************************************
+	>> 列出所有任务
+	crontab -l
+
+> gitlab 定时备份
+************************************************************
+history
+------------------------------------------------------------
+# 本地备份
+# gitlab-rake gitlab:backup:create 备份命令
+crontab -e
+0 2 * * * /usr/bin/gitlab-rake gitlab:backup:create
+# 异地备份
+# 先配置ssh免密码登录
+# ssh-keygen -t rsa
+# ssh-copy-id -i ~/.ssh/id_rsa.pub 192.192.100.41
+crontab -e
+0 3 * * * rsync -avzu /data/tools/gitlab/backup/* root@192.192.100.41:/data/tools/gitlab/backup/
+------------------------------------------------------------
+************************************************************
+

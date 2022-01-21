@@ -1,0 +1,124 @@
+> TODO
+	apiserver需要token鉴权
+	65 配置
+	172转发请求到两台服务
+
+> x-apigateway 需要五台虚拟机
+	>> 配置
+	CPU二核 内存4G 磁盘50G
+	>> 用途
+	三个开发分配三台
+	两台用于模拟真实服务器，开发后须部署到这两台上能正常运行后才部署到真实服务器
+
+> TODO
+	jumpserver 部署测试
+
+> jumpserver调用流程
+	OC 调用api创建用户、资产、权限，并保存数据信息；
+	>> 打开luna使用信息链接资产
+		 清除域下的cookie，使用token进行资产的登录
+		 会使用token进行cookie的重建，根据重建的cookie进行资产的链接
+		 操作完毕，进行cookie的清除，链接下一个资产不会出现问题
+
+> epel
+	>> 概念
+		 EPEL 的全称叫 Extra Packages for Enterprise Linux。EPEL 是由 Fedora 社区打造，为 RHEL 及衍生发行版如 CentOS、Scientific Linux 等提供高质量软件包的项目。装上了 EPEL 之后，就相当于添加了一个第三方源。
+	>> why
+		 那是因为 CentOS 源包含的大多数的库都是比较旧的。并且，很多流行的库也不存在。EPEL 在其基础上不仅全，而且还够新。
+		 EPEL 这两个优点，解决了很多人安装库的烦恼。
+	>> how
+		 yum install epel-release
+
+> centos7 环境开发使用脚本
+************************************************************
+centos7-dev-setup.sh
+------------------------------------------------------------
+#!/bin/bash
+yum install -y epel-release
+yum install -y wget lsof
+------------------------------------------------------------
+************************************************************
+
+# CentOS-Base.repo
+#
+# The mirror system uses the connecting IP address of the client and the
+# update status of each mirror to pick mirrors that are updated to and
+# geographically close to the client.  You should use this for CentOS updates
+# unless you are manually picking other mirrors.
+#
+# If the mirrorlist= does not work for you, as a fall back you can try the 
+# remarked out baseurl= line instead.
+#
+#
+
+[base]
+name=CentOS-$releasever - Base
+mirrorlist=http://mirrorlist.centos.org/?release=$releasever&arch=$basearch&repo=os&infra=$infra
+#baseurl=http://mirror.centos.org/centos/$releasever/os/$basearch/
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+#released updates 
+[updates]
+name=CentOS-$releasever - Updates
+mirrorlist=http://mirrorlist.centos.org/?release=$releasever&arch=$basearch&repo=updates&infra=$infra
+#baseurl=http://mirror.centos.org/centos/$releasever/updates/$basearch/
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+#additional packages that may be useful
+[extras]
+name=CentOS-$releasever - Extras
+mirrorlist=http://mirrorlist.centos.org/?release=$releasever&arch=$basearch&repo=extras&infra=$infra
+#baseurl=http://mirror.centos.org/centos/$releasever/extras/$basearch/
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+#additional packages that extend functionality of existing packages
+[centosplus]
+name=CentOS-$releasever - Plus
+mirrorlist=http://mirrorlist.centos.org/?release=$releasever&arch=$basearch&repo=centosplus&infra=$infra
+#baseurl=http://mirror.centos.org/centos/$releasever/centosplus/$basearch/
+gpgcheck=1
+enabled=0
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+
+************************************************************
+
+------------------------------------------------------------
+#!/bin/bash
+
+git_repo=https://gitee.com/abrance/emacs_set.git
+echo "install emacs ..."
+yum install wget gcc ncurses-devel clang git -y
+
+if [ ! -d "/opt/software" ]
+  then
+    mkdir -p /opt/software
+fi
+
+cd /opt/software
+
+wget https://mirrors.sjtug.sjtu.edu.cn/gnu/emacs/emacs-26.3.tar.xz
+xz -d emacs-26.3.tar.xz  # 解压
+tar -xvf emacs-26.3.tar
+cd emacs-26.3  # 进入安装目录
+# 配置参数 提示什么就加上什么参数
+./configure --with-x-toolkit=no  --with-gif=no --with-tiff=no  --with-gnutls=no  --with-jpeg=no  --with-png=no
+make && make install
+# 安装完毕
+# 加载常用配置
+mkdir settings
+git clone $git_repo settings
+cd settings
+mkdir -p ~/.emacs.d/elpa
+cp --force init.el ~/.emacs.d
+cp -r --force --parents elpa ~/.emacs.d
+echo "install end"
+------------------------------------------------------------
+************************************************************
+
+githubtoken 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
+
+> apiserver开启了 ip端口访问
