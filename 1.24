@@ -1,0 +1,34 @@
+> TODO
+	家乐luna完成拼接逻辑
+	webhook部署方式
+	emacs go
+	upstream
+	打火
+
+	>> jumpserver 剩余问题
+		 OC里面需要填ob-j 的ip，现在 OC请求jumpserver 使将ip写死了；前端也写死了
+		 每部署一个ob-j 需要再nginx中部署一个upstream
+	
+
+>
+
+upstream test192.168.100.64 {
+     server 192.168.100.64;
+}
+
+server {
+	 server_name jump.com;
+
+	 listen 80;
+	 listen 443 ssl;
+
+	 location ~* /192.168.100.64/(.*)$ {
+					proxy_pass http://test192.168.100.64/$1;
+					proxy_set_header Host $host;
+					proxy_set_header X-Real-IP $remote_addr;
+					proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+	 }
+}
+
+
+'HTTP_COOKIE': 'csrftoken=ZhCyFtPMwHnG9gojHOC0OMoqsWJCdWuYknQJY9VcCyGK8EFUgym8WiUQxe5MsaqD; sessionid=yqf64ulfg8dezqrpzyk5bh330r67bb7z; jms_current_role=1;

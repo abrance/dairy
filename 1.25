@@ -1,0 +1,41 @@
+/users/profile/
+/perms/asset-permissions/user/actions/?user_id=c7c90f2a-9478-4492-af2f-e018657697c7&asset_id=fa933299-8933-4b84-a418-a9eec748d5a3&system_user_id=089d9c1a-9eb8-425a-93a3-23d3b811ff62
+/assets/system-users/089d9c1a-9eb8-425a-93a3-23d3b811ff62/assets/fa933299-8933-4b84-a418-a9eec748d5a3/auth-info/?username=d_user1&user_id=c7c90f2a-9478-4492-af2f-e018657697c7
+/assets/assets/fa933299-8933-4b84-a418-a9eec748d5a3/
+/assets/assets/fa933299-8933-4b84-a418-a9eec748d5a3/platform/
+
+TODO
+	AllowAny改了
+
+session_user: {'_SessionBase__session_key': '3bgazuausdk28w6dim73x7lnay6zz9i0', 'accessed': True, 'modified': True, 'ser\
+ializer': <class 'django.core.signing.JSONSerializer'>, 'server': Redis<ConnectionPool<Connection<host=localhost,port=63\
+79,db=5>>>, '_session_cache': {
+'auth_password': '',
+'user_id': '9fdc9442-0073-4c2b-ae16-cf01d50c31e0',
+'auth_backend': 'django.contrib.auth.backends.ModelBackend',
+'_auth_user_id': '9fdc9442-0073-4c2b-ae16-cf01d50c31e0',
+'_auth_user_backend': 'django.contrib.auth.backends.ModelBackend',
+'_auth_user_hash': '99640e2dc1b66f72efc74b1d7d3042ceee68469d',
+'auth_user_id': '',
+'auth_mfa': '',
+'auth_confirm': '',
+'auth_ticket_id': '',
+'_session_expiry': 86400}}
+
+session_user: {'_SessionBase__session_key': '06wzv5g5cfu7kewnz2kwtg1zi8ieguf1', 'accessed': True, 'modified': True, 'ser\
+ializer': <class 'django.core.signing.JSONSerializer'>, 'server': Redis<ConnectionPool<Connection<host=localhost,port=63\
+79,db=5>>>, '_session_cache': {
+'_session_expiry': 600,
+'auth_password': '',
+'user_id': '9fdc9442-0073-4c2b-ae16-cf01d50c31e0',
+'auth_backend': 'django.contrib.auth.backends.ModelBackend',
+'auth_user_id': '',
+'auth_mfa': '',
+'auth_confirm': '',
+'auth_ticket_id': ''}}
+
+
+
+'_auth_user_id': '9fdc9442-0073-4c2b-ae16-cf01d50c31e0'
+'_auth_user_hash': '99640e2dc1b66f72efc74b1d7d3042ceee68469d'
+'_auth_user_backend': 'django.contrib.auth.backends.ModelBackend'
