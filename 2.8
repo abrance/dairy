@@ -1,0 +1,56 @@
+> TODO
+	重要且紧急webhook 部署
+	重要        gloo gateway 的运行
+	重要        jumpserver
+
+	重要        gloo upstream endpoint 结构体
+
+> webhook 部署
+	>> 需要确认apiserver启动配置
+		apiserver_name=`kubectl get --no-headers=true po -n kube-system | grep kube-apiserver | awk '{ print $1 }'
+		kubectl get po $apiserver_name -n kube-system -o yaml | grep plugin
+		# - --enable-admission-plugins=NodeRestriction,MutatingAdmissionWebhook,ValidatingAdmissionWebhook 说明已开启
+
+> webhook授权模式详解	
+	《kubernetes权威指南第六版》P571
+
+> apiserver 的架构从上到下
+	《kubernetes权威指南第六版》P563
+	>> api层
+	>> 访问控制层
+	>> 注册表层
+	>> etcd数据库
+	
+
+> gloo
+	本质上是一个提供envoy配置的管理工具
+	可以采用多种方式发现服务，并生成upstream 和 endpoint 配置，upstream代表网络上游，endpoint为上游的节点，这样构成一个完整网关，连接到多个网络
+
+> solo-kit
+	>> 各个后缀名的文件是什么意思
+	pb.go
+
+> gloo upstream
+	>> 思路
+		>>> 流程图
+		>>> code
+
+> gloo endpoint
+
+> sni
+	sni实现多域名虚拟主机的ssl/tls 认证 https://shansing.com/read/355/
+	>> 问题
+		早期的 SSLv2 根据经典的公钥基础设施 PKI(Public Key Infrastructure) 设计，它默认认为：一台服务器（或者说一个IP）只会提供一个服务，所以在 SSL 握手时，服务器端可以确信客户端申请的是哪张证书
+		但是让人万万没有想到的是，虚拟主机大力发展起来了，这就造成了一个 IP 会对应多个域名的情况。解决办法有一些，例如申请泛域名证书，对所有 *.yourdomain.com 的域名都可以认证，但如果你还有一个 yourdomain.net 的域名，那就不行了
+		在 HTTP 协议中，请求的域名作为主机头（Host）放在 HTTP Header 中，所以服务器端知道应该把请求引向哪个域名，但是早期的 SSL 做不到这一点，因为在 SSL 握手的过程中，根本不会有 Host 的信息，所以服务器端通常返回的是配置中的第一个可用证书。因而一些较老的环境，可能会产生多域名分别配好了证书，但返回的始终是同一个
+		既然问题的原因是在 SSL 握手时缺少主机头信息，那么补上就是了
+	>> 解决
+		SNI（Server Name Indication，意为“服务器名称指示”） 定义在 RFC 4366，是一项用于改善 SSL/TLS 的技术，在 SSLv3/TLSv1 中被启用。它允许客户端在发起 SSL 握手请求时（具体说来，是客户端发出 SSL 请求中的 ClientHello 阶段），就提交请求的 Host 信息，使得服务器能够切换到正确的域并返回相应的证书
+		要使用 SNI，需要客户端和服务器端同时满足条件，幸好对于现代浏览器来说，大部分都支持 SSLv3/TLSv1，所以都可以享受 SNI 带来的便利
+
+> gloo enterprise only 表示企业版才能使用，对个人来说不可见
+
+
+1.nodegroup 是什么
+2.执行失败后异常的显示 机制
+3.校验

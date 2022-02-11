@@ -1,0 +1,93 @@
+> TODO
+	gloo 运行在59上
+	向gloo传递数据
+
+> * 表示重点需要看的，每次阅读笔记应该至少先将链接都打开简单阅读一遍才开始继续任务
+
+> kubectl kubeconfig context
+	* k8s kubeconfig说明 http://docs.kubernetes.org.cn/782.html
+	* kubectl命令生成kubeconfig context 等系列流程 https://blog.csdn.net/xzk9381/article/details/116979754
+	* kubeconfig 配置文件详解 https://blog.csdn.net/qq_34556414/article/details/110000037?spm=1001.2101.3001.6650.3&utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7ELandingCtr%7EHighlightScore-3.queryctrv2&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7ELandingCtr%7EHighlightScore-3.queryctrv2&utm_relevant_index=5
+	>> kubeconfig
+		>>> 概念
+			k8s 使用kubeconfig文件组织集群的访问
+			这样的设计便于支持多个集群、用户和身份验证机制
+			apiserver提供服务后，其他的组件可以使用kubeconfig进行访问		
+			kubeconfig 文件用于组织关于集群、用户、命名空间和认证机制的信息。命令行工具 kubectl 从 kubeconfig 文件中得到它要选择的集群以及跟集群 API server 交互的信息
+			默认，kubectl 会从$HOME/.kube 目录下查找文件名为config的文件, 可以通过设置环境变量KUBECONFIG 或者kubectl 命令指定 --kubeconfig参数配置读取的kubeconfig
+		>>> kubectl为apiserver生成可供连接的kubeconfig
+------------------------------------------------------------
+# 配置cluster信息，如果kubeconfigfilepath不存在会生成一个
+k config set-cluster k8s-cluster-a --server=http://$ip:$port --kubeconfig=$kubeconfigfilepath
+# 设置客户端认证信息
+k config set-credentials k8s-cluster-a-admin --kubeconfig=$kubeconfigfilepath
+# 设置conitext
+k config set-context k8s-cluster-a-context --cluster=k8s-cluster-a --user=k8s-cluster-a-admin --kubeconfig=$kubeconfigfilepath
+# 检查一下kubeconfig配置信息
+k config view --kubeconfig=$kubeconfigfilepath
+# kubectl使用这个连接
+k cofnig use-context k8s-cluster-a-context --kubeconfig=$kubeconfigfilepath
+k cluster-info --kubeconfig=$kubeconfigfilepath
+# 可以通过设置环境变量KUBECONFIG默认使用此kubeconfig 而不用每次命令带kubeconfig参数
+------------------------------------------------------------
+		>>> context
+			kubeconfig 文件可以包含 context 元素，每个 context 都是一个由（集群、命名空间、用户）描述的三元组。您可以使用 kubectl config use-context 去设置当前的 context。命令行工具 kubectl 与当前 context 中指定的集群和命名空间进行通信，并且使用当前 context 中包含的用户凭证
+------------------------------------------------------------
+# 查看context的前提是已经指定了kubeconfig，因为context是kubeconfig中的概念
+# 查看contexts
+k config get-contexts
+k config current-context
+# 切换context
+k config use-context $context_name
+# 设置context
+# config set-context可以修改任何在配置文件中的上下文信息，只需要在命令中指定上下文名称就可以。而--current 则指代当前上下文
+# 上下文信息所包括的内容有：cluster 集群（名称）、用户账号（名称）、连接到 K8S 后所在的 namespace，因此有config set-context严格意义上的用法
+k config set-context $context_name --current --$key=$value
+------------------------------------------------------------
+
+> apiserver方面的工作
+	>> 部署
+		>>> 详细环境
+		>>> 软件包
+		>>> 编译
+		>>> 运行
+		>>> 其他细节
+			>>>> 开机启动
+			>>>> 工具脚本
+				>>>>> 生成相应的证书
+				>>>>> 编译脚本
+	>> 开发
+		>>> 详细开发环境
+		>>> 仓库
+		>>> 开发工具包及作用
+
+		
+
+> HA
+	>> 概念
+		
+	>> 流程
+	
+	>> 算法
+		>>> 协议
+		>>> 切换主机的时机
+			健康状态到什么时候进行切换
+	>> 问题
+		HA 最关键的步骤是什么？是集群管理进程 保证节点 在预期的配置下运行？
+
+> gloo 运行在apiserver上
+	>> 运行环境
+		>>> gloo代码版本 2022-01-11 17:27:37 master
+	>> 流程
+		>>> 
+	>> 原理
+
+> k8s kind
+	>> 概念
+		kind属性用于表明此资源对象的类型，可以分为 原生类型 和CRD两种
+	>> 查看所有kind
+------------------------------------------------------------
+kubectl api-resources -o wide --namespaced=true
+------------------------------------------------------------
+
+

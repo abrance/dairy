@@ -1,0 +1,39 @@
+> TODO
+	>> 确定upstream endpoint fileds(UI)
+		>>> upstream
+		>>> endpoint
+		>>> upstreamGroups
+	>> dam 部署
+		>>> 使用的工具包和各个版本的部署
+			solokit
+			k8s-utils
+			reporting-client   会收集系统信息发送到solo.io
+			
+> 软件版本命名规则
+	版本规则详解https://segmentfault.com/a/1190000011368506
+	Base版: 此版本表示该软件仅仅是一个假页面链接，通常包括所有的功能和页面布局，但是页面中的功能都没有做完整的实现，只是做为整体网站的一个基础架构。
+	Alpha版: 此版本表示该软件在此阶段主要是以实现软件功能为主，通常只在软件开发者内部交流，一般而言，该版本软件的Bug较多，需要继续修改。
+	Beta版: 该版本相对于α版已有了很大的改进，消除了严重的错误，但还是存在着一些缺陷，需要经过多次测试来进一步消除，此版本主要的修改对像是软件的UI。
+	RC版: （Release   Candidate）该版本已经相当成熟了，基本上不存在导致错误的BUG，与即将发行的正式版相差无几。
+	Release版: 该版本意味“最终版本”，在前面版本的一系列测试版之后，终归会有一个正式版本，是最终交付用户使用的一个版本。该版本有时也称为标准版。一般情况下，Release不会以单词形式出现在软件封面上，取而代之的是符号(Ｒ)
+	github gloo项目 release包不带state，代表是正式版
+
+> gloo 版本选择
+	v1.11.0-beta10     仍在开发的版本
+	v1.10.7            已经经过测试稳定后的版本
+	>> 升级时改变了什么
+		>>> 主要涉及以下几个工具的使用的升级
+			solo-io/envoy-gloo
+			solokit
+			grpc协议
+			k8s-utils
+			对k8s不同版本的适配
+		>>> 涉及ssl方面的修复
+	>> 结论
+		使用v1.10.7 ，release发布时间2022/2/9 源代码: https://github.com/solo-io/gloo/archive/refs/tags/v1.10.7.tar.gz。原因：代码版本低一点没多大关系，后面再开发。
+		gloo-gateway.yaml https://github.com/solo-io/gloo/releases/download/v1.10.7/gloo-gateway.yaml
+		
+> vpn
+	>> ss
+		pacs模式在访问局域网时也会出问题
+		pacs 模式会设置git bash的proxy，push时出现 failed to connect 127.0.0.1......报错，执行 git config --global --unset http.proxy
