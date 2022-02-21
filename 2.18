@@ -1,0 +1,17 @@
+> TODO
+	gateway 的编译环境 solokit 的使用 从代码到现在的目录结构
+
+> ss 配置 user-rule.txt PAC模式
+	自添加PAC模式 https://tech.codefog.com/2017/custom-user-rule/
+************************************************************
+user-rule.txt
+------------------------------------------------------------
+! Put user rules line by line in this file.
+! See https://adblockplus.org/en/filter-cheatsheet
+@@||192.192*
+------------------------------------------------------------
+************************************************************
+
+> Emacs用dired查找目录树中的所有文件
+	https://blog.csdn.net/csfreebird/article/details/9709141
+	M-x find-name-dired RET 输入filename即可

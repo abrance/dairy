@@ -1,0 +1,183 @@
+> TODO
+	gateway 的编译环境 solokit 的使用 从代码到现在的目录结构
+	
+	
+> metrics-server
+	k8s metrics-server https://www.jianshu.com/p/1e825ac69f40
+	>> k8s 扩容
+
+
+> operator 开发上的问题
+	>> controller webhook 监听的机制
+		controller webhook 如何实现对crd 的监听的，之前通过 kubebuilder 实现了对一个crd 的监听；现在想要实现对多个crd进行监听，只起一个服务执行controller 的功能，也只起一个服务执行 webhook 的功能。
+	>> 读写并发问题
+		controller 或 webhook 的编程上，会不会有并发读写的问题，如果有，该如何解决。
+
+> 杂食阅读者
+************************************************************
+杂食阅读者
+------------------------------------------------------------
+世界上有许多人是精专类读者，我刚巧不在其中。所以，就一个主题、一个学科、一个领域进行深入研读不是我所擅长。我在阅读上是个杂食动物，就是人们通常所说那种凭借兴趣引阅读之人，读到哪里算哪里。我不排斥书单、排行榜，并不觉得有商业操作在其中就是卑下。但是更喜欢顺着一本书漫游，或者随机碰运气，因为总体上来说我认为不管自己怎么折腾，能遇见什么书一早就已经注定。关于这一点，留到最后再加以解释。
+
+所以我不倾向于限制人们读什么不读什么，没有人会看使用说明书，也没有人会看阅读指南，每个人在阅读上大可以随心所欲，反正左右也逃不出那片海。但是人们并不喜欢我这种放任自流，总认为有个什么把手能抓握一下心里才踏实。我能理解这种心态，不过我有另外一重考虑，那就是时间问题。
+
+迟早一个人都可以通过阅读建立一套知识体系和一套思考逻辑，但是建立过程有长短，精力耗费有多寡。在理想情况下，这个过程不宜过长，免得长期自我感觉没有进展而放弃，甚至陷入自我怀疑。于是一定存在某种合理路径，兼顾阅读乐趣和个人发育。
+
+人在一开始为什么要阅读？原因不外乎两样，一样是消遣，另一样是新知。所谓消遣就是打发时间，并且要求廉价；而所谓新知可能会出现一点问题，那就是并非所有人在最初都知道什么是知识。我知道一些事情，但是旁人不知道---这是个常见动机，幼儿园时代就知道恐龙分类，知道世界四极，知道重要历史年代，确实能吓倒一批人，而且收获许多赞美。如果以为这就是知识，就很容易习惯于偷盗和借贷。
+
+会去看很多百科，看很多历史地理书籍，随后则是大把从别人那里借来结论，盗窃观点，只是为在人前可以流利复述。为何庞培毁灭？为何罗马共和崩溃？为何厄尔尼诺现象改变气候？书中都有答案，都有分析，只需要有一个好记性，就可以扮演博学之士。如果再多看一点辩论文集，还可以进一步成为雄辩之人。随时信手拈来，古往今来所有智者都站在自己身后，自己则永远站在正确和真理一方。
+
+我也从这里走过来，老实说，这并不是什么好事，哪里有那么多因为可以直通所以？
+
+如果有可能，我是建议从自然科学入门书籍开始读起，包括传记。不是看什么科学家艰难困苦，坚毅不拔，而是看如何提出一个正确问题，然后又是如何求解，最后是这个解能适用多大范围，又因为什么而被推翻。于是因此知道自己和其它人类一样，为茫茫无知所包围，周围充斥着大量不确定。也就是说，不忙于背诵大陆板块漂移理论，而是对论证过程充满兴趣。后者让事物变得有意义，把不同事物联系在一起，证明背后有相同关联---这才是知识。否则很容易变成点子专家，长久凝视地图等待着灵感降临，就像是努力打瞌睡等待着元素在梦中首尾相衔形成周期表---事情不是这个样子，不曾这样发生，也不曾这样结果。
+
+明白提出正确问题，尝试求解，确定适用范围，自然也会联想到阅读本身。阅读有没有前提？当然有，阅读前提是最终要回到生活中来，不是让人陷入书本中去。如果阅读归阅读，生活归生活，阅读就是纯娱乐，大可不必有那么多种书籍存在。大众也没有必要阅读，留着给学者做思想娱乐就好。即便是读历史书，何人、何时、何事也没有那么重要，因为一切已然随着时光消逝，我们再去重读，是去读当时什么形势，什么处境，个人因此做出什么选择。这同样指向现实生活，无论是精神境界还是个人选择，都可以成为此刻依仗---因为有人那么做过，曾经如此抉择。
+
+然而培养理性，锻炼思想，其中缺少一味大药，就是人性。自然科学从人指向自然，指向客观，但是要回到生活中去，得以具体运用，则需要深入认识人性。常见工程师、程序员持有各种机械观点，对待世界对待世人如同对待物件，或切或割，尤显冷酷无情，其原因就在于极少阅读人文作品，对人性缺乏体悟和认知。因此在自然科学入门书籍之外，还需要阅读诗歌、小说、散文，以及人文科学入门书籍。我们为自然所包围，世间万物都是观察对象，与此同时我们自身，同样是重要景观。一块金子落入猴群或是落入人群，结果会大相径庭。人类本身非常独特，值得仔细观察思考。
+
+从中可以观察人们为何做此想法，人们为何做此行为，人性又有哪些不同层面，这些不同层面又如何影响前两者。如此可以知道，生活在人群之中其实是一项专门技能，需要专门学习。《阿Q正传》不是写一个故事，而是写一类人，从中可以看见怯懦如何变成凶残，愚昧和欲望结合又会产生什么结果。同时，人群又是怎样一种存在，短视和贪婪如何左右他们恭谦或者狂暴。同样，《朝三暮四》肯定也不是真在写猴子，写两餐分配方案，而是写权威和大众，写对抗与操控，写议题控制如何扭曲真实意图。而所有大团圆结局，一个人或早或迟都会意识到，它并不是在写幸福美满，而是在写妥协让各方各取所需，于是各自都能忍受各有所失。
+
+如此，自然科学教授人与世界怎么相处，人文科学教授人与人群怎么相处。此后只剩下个人如何与自己相处，认识自身这一部分可以暂缓，等问题升起再去阅读。不到十几二十岁，人不大可能关心自己是谁，为什么感到痛苦不安，为什么被情绪所左右......诸如此类问题。意识到身心未必时时合一，还需要进一步认识分化。先是把自身从世界中分化出来，然后是把自己从人群中分化出来，最后是心从身里分化出来。不是在世界和人群中遭遇大量麻烦，人不会去求自己心安。
+
+综上，我个人作为杂食阅读者，支持杂食阅读。并且建议由百科、科普开始，转入人文，两者不可偏废。前者过多，容易变得偏狭冷酷，动辄改变世界，能力越大危害越大；后者过多，容易冲动行事，一切拜托情感与口才，最后以操弄人心为能事。没有前者提供思想框架，逻辑工具，后者就只是空想空谈；没有后者帮助理解人性理解社会，前者就常常会伤己伤人。杂食阅读肯定不够精专，但胜在平衡，利于打好基础。
+
+杂食阅读同样也有前提，就是以此反复观照世界，观照他人，印证书本所学。并非仅只为记住结论，随时可以人前背诵讲演。在最初，偷盗和借贷在所难免，因为人人手无寸铁。一旦经过现实印证，实践锤炼，就可以转化为自家资产。记住机械结构和原理是借贷，据此维修成功则是自主自有。背诵囚徒困境定义是偷盗，在纷繁复杂中认出囚徒困境并以信息交换破解则是自主自有。杂食完就要劳动，下到田地中去，如此才是活泼泼人生，活泼泼知见。
+
+最后，一个人读到什么书，并非全靠个人努力达成，又或者是命运暗中决定。个人有什么疑惑，前人已经问过。个人有什么尝试，前人已经做过。因此，书籍不是单独一本本书，而是一张张网。历代人类用自身认知织网，想要尽可能覆盖世界，覆盖人群，覆盖自身，从中找出解释来。因此，无论个人如何折腾，只要存在个人偏好，迟早会步入其中一张网，网上每一个点就是一本书，刚好构成自己所需。无非是有能力就可以超出这张网，有所发现，没能力则占据一角。说到底，这就是个人智慧面对群体智慧，又能漫游到哪里去？
+------------------------------------------------------------
+************************************************************
+
+> UML 图
+	类图和时序图如何表达
+	>> 类图的元素
+		类（Class）、接口（Interface）、依赖（Dependency）关系、泛化（Generalization）关系、关联（Association）关系、聚合关系（Aggregation）、组合关系（Composition）和实现（Realization）关系
+
+> t NewTranslator 转换器
+	>> 概述
+		将gloo 对象转化为 envoy 对象，最终传给envoy
+	>> Newtranslator(sslConfigTranslator SslConfigTranslator,  settings Settings, pluginRegistryFactory PluginRegistryFactory) Translator
+		>>> NewTranslatorWithHasher(sslconfigtranslator, settings, pluginregistryfactory, EnvoyCacheResourcesListToFnvHash) Translator使用 hasher 处理 gloo 对象
+			EnvoyCachereSourcesListToFnvHash(resources []envoycache.Resource) uint64 将resources 中的数据 hash，返回hash值
+			translatorFactory{pluginRegistryFactory PluginRegistryFactory, settings Settings, sslConfigTranslator SslConfigTranslator, hasher func(resources []envoycache.Resource) uint64} 生成translator的工厂
+	>> 结论
+		最终将 pluginRegistryFactory settings sslConfigTranslator hasher 保存起来了
+
+> routeReplacingSanitizer NewRouteReplacingSanitizer 路由替换清扫器
+	>> 概述
+		将 listener cluster 和配置中是否开启 保存起来
+	>> NewRouteReplacingSanitizer(cfg GlooOptions_InvalidConfigPolicy) (RouteReplacingSanitizer, error)
+		>>> GetInvalidRouteResponseCode() uint32 验证cfg.InvalidRouteResponseCode是否有效
+		>>> GetInvalidRouteResponseBody() string 验证 cfg.InvalidRouteResponseBody 是否有效
+		>>> makeFallbackListenerAndCluster(uint32, string) (Listener, Cluter, error) 生成回调的listener 和 cluster
+			>>>> HttpConnectionManager{CodecType HttpConnectionManager_AUTO, StatPrefix fallbackListenerName,  RouteSpecifier HttpConnectionManager_RouteConfig} 返回一个hcm配置
+				>>>>> CodecType HttpConnectionManager 对于每个链接，connectManager 将决定编码格式，HttpConnectionManager_AUTO 兼容alpn(http2) 的协议编码方式（http1和http2的编码方式不同），也就是先尝试alpn编码，如果不行就使用http1
+				>>>>> StatPrefix fallbackListenerName string类型 "fallback_listener_for_invalid_routes" 回调的listener名字
+				>>>>> RouteSpecifier HttpConnectionManager_RouteConfig{RouteConfig RouteConfiguration} http连接路由配置
+					>>>>>> Name "fallback_routes"
+					>>>>>> VirtualHosts VirtualHost{Name "fallback_virtualhost", Domains []string{"*"}, Routes: []*Route{{Match RouteMatch{PathSpecifier: RouteMathc_Prefix{Prefix: "/"}}, Action: Route_DirectResponse{DirectResponse DirectResponseAction{Status responseCode, Body DataSource{Specifier DataSource_InlineString{InlineString responseBody}}}}}}}
+						>>>>>>> Route 路由既是如何匹配请求的规范，也是下一步要做什么的指示(例如，重定向、转发、重写)
+							Match RouteMatch{PathSpecifier: RouteMathc_Prefix{Prefix: "/"}}  路由匹配方式，指定以前缀为 / 进行匹配
+							Action: Route_DirectResponse{DirectResponse DirectResponseAction{Status responseCode, Body DataSource{Specifier DataSource_InlineString{InlineString responseBody}}}} 路由匹配后执行的操作，指定为直接返回任意HTTP响应，不需要代理
+				>>>>> HttpFilters HttpFilter{{Name Router}}
+					Name Router "envoy.filters.http.router"
+			>>>> MessageToAny(msg Message) (Any, error) 将消息由go对象序列化为proto对象保存 hcm
+				protoToMessageName(msg Message) (string, error) 返回"type.googleapis.com/"+给定消息类型的完整protobuf名称
+				protoToMessageBytes(msg Message) ([]byte, error) 返回序列化的proto信息
+			>>>> Listener{Name fallbackListenerName, Address Address{Address Address_Pipe{Pipe Pipe{Path fallbackListenerSocket}}}, FilterChains []FilterChain{{Filters: []Filter{Name: HTTPConnectionManager, ConfigType Filter_TypedConfig{TypeConfig typeHcmConfig}}}}} 返回一个listener
+				>>>>> Name fallbackListenerName string "fallback_listener_for_invalid_routes"
+				>>>>> Address Address{Address Address_Pipe{Pipe Pipe{Path fallbackListenerSocket}}}  设置地址为socket方式 "@fallback_listener_for_invalid_routes" Unix域套接字路径。在Linux上，以“@”开头的路径将使用抽象名称空间。开始的“@”被Envoy替换为空字节
+				>>>>> FilterChains: []FilterChain{{Filters []Filter{{Name HTTPConnectionManager, ConfigType Filter_TypedConfig{TypedConfig typedHcmConfig}}}}}
+					Name HTTPConnectionManager "envoy.filters.network.http_connection_manager"  指定过滤器
+					ConfigType Filter_TypedConfig{TypedConfig typedHcmConfig}  指定proto格式的hcm配置
+			>>>> Cluster{Name fallbackClusterName, ConnectTimeout DurationProto(CluterConnectionTimeout), LoadAssignMent ClusterLoadAssignment{ClusterName fallbackCluterName, Endpoints []LocalityLbEndpoints{{LbEndpoints LbEndpoint{{HostIdentifier LbEndpoint_Endpoint{Endpoint Endpoint{Address Address{Address Address_Pipe{Pipe Pipe{Path fallbackListenerSocket}}}}}}}}}}} 返回一个单个upstream cluster 的配置
+				>>>>> Name fallbackClusterName string "fallback_cluster_for_invalid_routes"
+				>>>>> ConnectTimeout DurationProto(CluterConnectionTimeout) go对象5s转为proto对象 连接超时时间设置为5s
+				>>>>> LoadAssignment ClusterLoadAssignment{ClusterName fallbackCluterName, Endpoints []LocalityLbEndpoints{{LbEndpoints LbEndpoint{{HostIdentifier LbEndpoint_Endpoint{Endpoint Endpoint{Address Address{Address Address_Pipe{Pipe Pipe{Path fallbackListenerSocket}}}}}}}}}} 需要设置这个的指定成员的 。接收endpoint信息，作为一个cluster进行处理
+					>>>>>> ClusterName fallbackCluterName string "fallback_cluster_for_invalid_routes" 设置cluster名称
+					>>>>>> Endpoints []LocalityLbEndpoints{{LbEndpoints LbEndpoint{{HostIdentifier LbEndpoint_Endpoint{Endpoint Endpoint{Address Address{Address Address_Pipe{Pipe Pipe{Path fallbackListenerSocket}}}}}}}}} 组成cluster 的endpoint
+						>>>>>>> LbEndpoints LbEndpoint{{HostIdentifier LbEndpoint_Endpoint{Endpoint Endpoint{Address Address{Address Address_Pipe{Pipe Pipe{Path fallbackListenerSocket}}}}}}} envoy可以路由到的endpoint
+							>>>>>>>> HostIdentifier LbEndpoint_Endpoint{Endpoint Endpoint{Address Address{Address Address_Pipe{Pipe Pipe{Path fallbackListenerSocket}}}}} upstream host 标识符
+								>>>>>>>>> Endpoint Endpoint{Address Address{Address Address_Pipe{Pipe Pipe{Path fallbackListenerSocket}}}}
+									Address Address同上unix域套接字路径
+		>>> RouteReplacingSanitizer{enable GetReplaceInvalidRoutes(), fallbackListener listener, fallbackCluster cluster} 将 listener cluster 和配置中是否开启 保存起来
+			enable GetReplaceInvalidRoutes() bool 值是否启动  验证cfg.ReplaceInvalidRoutes 真假
+			fallbackListener listener
+			fallbackCluster Cluster
+
+> listener
+	envoy listener  https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/listeners/listeners
+	>> 概述
+		envoy配置支持单个进程中任意数量的侦听器。通常，我们建议每台机器运行一个envoy，而不考虑已配置的listener数量。这使得操作更加简单，并且只需要一个统计数据源。envoy支持TCP和UDP listener。
+		监听器还可以选择配置一些监听器过滤器。这些过滤器在网络级过滤器之前进行处理，并有机会操纵连接元数据，通常会影响后续过滤器或集群处理连接的方式
+
+> webhook 注册方式
+	k8s 权威指南 第五版 P630
+
+> ifconfig设置vip
+	>> 流程
+		查看网卡信息 ip a 或 ifconfig
+		准备vip （不能是正在使用的ip）
+		执行 vip 绑定网卡操作
+	>> 使用
+		ifconfig 网卡:未使用的接口 vip netmask 掩码
+		如下：
+	  ifconfig ens192:1 192.192.100.66/24 netmask 255.255.255.0 
+		
+> x网关高可用机制和问题解答
+	>> 假设
+		任何服务的任何组件都会挂掉
+	>> 组件
+************************************************************
+组件交互图
+------------------------------------------------------------
+              ┌─────────────┐
+              │control plane│
+              ├─────────────┤
+              │ ▲        ▲  │
+              │ │      2 │  │ 1
+┌─────────────┼─┼────────┼──┼────────────┐
+│   master    ▼ │        │  ▼    bak     │
+│  ┌────────────┴┐      ┌┴────────────┐  │
+│  │  Agent      │      │  Agent      │  │
+│  │ ┌───────────┤      │ ┌───────────┤  │
+│  │ │envoy ctrl │      │ │envoy ctrl │  │
+│  │ │           │      │ │           │  │
+│  │ │heartbeat  │      │ │heartbeat  │  │
+│  │ │           │      │ │           │  │
+│  │ │hb_reciever│      │ │hb_reciever│  │
+│  │ └───────────┤      │ └───────────┤  │
+│  │  envoy      │      │  envoy      │  │
+│  │ ┌───────────┤      │ ┌───────────┤  │
+│  └─┴───────────┘      └┬┴───────────┘  │
+│                        │ 3             │
+│                        ▼               │
+│            ┌──────────────┐            │
+│            │  GATEWAY     │            │
+└────────────┴──────────────┴────────────┘
+   1 send cmd to controll Agent implement HA
+     send cmd to manage envoy
+
+   2 publish state
+
+   3 master die, controller send cmd to bak to ask
+     gateway if master have float ip by ARP
+------------------------------------------------------------
+************************************************************
+	>> 问题
+		>>> 需要考虑哪些问题？
+      Agent 启动失败了怎么办？                                                                   # 节点正常添加，但是不可用
+      Agent 启动成功后面有部分服务挂了或者都挂了怎么办？                                       # 定期检查，如果有服务挂掉了就将其拉起；这个程序作为单独程序运行
+      Apiserver 服务出问题？                                                                      # agent 不与apiserver 通信，只跟controller 通信，在controller中起一个协程处理 agent 方面的心跳信息的
+      假设主存在部分服务一直停止不了，这个时候，备无法成为主，则导致整个业务中断，该怎么处理？  # 手动处理
+      备成为主后也挂了怎么办？                                                                   # 都停止工作，手动处理
+      两台节点同时恢复，防止同时成为主                                                          # 节点不会自己变为主，需要由管理面下发命令成为主，所以由管理面进行决策即可
+      接收不到主的心跳的处理机制  防火墙？                                                      # 管理面发送命令给备，由备检测主是否拥有浮动ip （使用arp）
+    >>> Agent 之间需不需要通信为什么？
+      不需要，因为所有的操作都由管理面下发；备检测主是否拥有ip时，只需发送arp命令即可知道
+		
+> 代码阅读规范
+	>> 对于每一层的对象的解释，都可以通过 概述 组成 结论等字段，详细进行说明
+	>> 对于代码块中的函数，直接填写函数内的 形参和实参即可，不要只写一个实参
+	>> 对于还有子对象的层级，同层级的对象都需要加上 > 表示此层级
+	>> 对于结构体类型，可以写为 结构体变量 内容 ，也可以直接模仿代码 结构体变量:内容
+

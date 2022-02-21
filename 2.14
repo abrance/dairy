@@ -1,0 +1,127 @@
+> TODO
+	>> 确定upstream endpoint fileds(UI)
+		>>> upstream
+		>>> endpoint
+		>>> upstreamGroups
+	>> dam 部署
+		>>> 使用的工具包和各个版本的部署
+			solokit
+			k8s-utils
+			reporting-client   会收集系统信息发送到solo.io
+
+	>> 文档
+		新人文档
+		项目文档
+		部署文档
+		技术设计文档
+		测试设计文档
+
+> dam 设计文档
+
+> 交互方面
+> 转换为eds cds方面的代码
+
+> dam protobuf 导入
+------------------------------------------------------------
+# proto这样的导入未必有真实的proto文件
+import "github.com/solo-io/solo-kit/api/external/envoy/api/v2/core/base.proto";
+# 这里在proto阶段是无法找到 Headervalueoption 的，但是在翻译成 pb.go 后的文件是可以找到对应的 pb.go 的库的
+repeated .solo.io.envoy.api.v2.core.HeaderValueOption request_headers_to_add = 1;
+------------------------------------------------------------
+
+> upstream
+	>> upstreamStatic Upstream_Static
+		>>> hosts Host[]
+			Addr string
+			Port uint32 
+			SniAddr string 可选，如果设置会覆盖上层的sni
+			loadbalancingweight uint32 可选，负载均衡权值，不填则是同权
+		>>> useTls bool
+		>>> autoSniRewrite bool 默认true，hosts自动使用addr作为sni
+	>> sslConfig UpstreamSslConfig 如果选择使用了tls必填
+		>>> sslSecrets
+			>>>> UpstreamSslConfig_SecretRef
+		  >>>> upstreamSslConfig_SslFiles upstreamSslConfig_SslFiles 客户端证书 做双向认证
+				tlsCert  string
+				tlsKey   string
+				rootCa   string 
+		  >>>> UpstreamSslConfig_Sds
+		>>> sni string可选，sni协议的实现
+		>>> verifySubjectAltName string[]
+		>>> parameters 版本和额外加密套件配置
+		  >>>> minimumProtocolVersion enum[0, 1, 2, 3, 4] auto 或tlsv1_0 tlsv1_1 tlsv1_2 tlsv1_3
+		  >>>> maximumProtocolVersion enum[0, 1, 2, 3, 4] auto 或tlsv1_0 tlsv1_1 tlsv1_2 tlsv1_3
+		  >>>> cipherSuites string[] 密码套件
+		  >>>> ecdhCurves string[] 椭圆曲线加密
+		>>> alpnProtocols string[] application level protocol negotiation ，tls的扩展，应用层协议协商，应用的最多的是http2的协商，参考https://www.cnblogs.com/rainboy2010/p/12686843.html
+	>> circuitBreakers CircuitBreakerConfig 熔断机制配置
+		>>> maxConnections uint32       cluster最大连接数默认1024
+		>>> maxPendingRequests uint32   cluster 最大挂起的request数默认1024
+		>>> maxRequests uint32          cluster 最大并行的request 数默认 1024
+		>>> maxRetries uint32           cluster 最大并行的重试 默认 3
+	>> loadBalancerConfig LoadBalancerConfig 负载均衡配置
+		>>> healthyPanicThreshold double 健康紧急阈值默认50%
+		>>> updateMergeWindow 持续时间 更新检测机器性能指标的间隔，0值代表disable并马上应用，默认1s，如果机器性能不好，可以设计高一点
+		>>> isLoadBalancerConfig_Type enum[] 负载均衡策略选择
+	>> connectionConfig ConnectionConfig 连接配置
+		>>> maxRequestsPerConnection uint32单个upstream 连接最大request数，默认0值，表示无限制
+		>>> connectTimeout 持续时间  连接超时限制
+		>>> tcpKeepalive ConnectionConfig_TcpKeepAlive 默认使用操作系统默认值
+			>>>> keepaliveProbes uint32 当无响应的情况，最大发送保活探针数，超过就知道这个连接已经死掉 默认9s
+			>>>> keepaliveTime 持续时间秒级 保活探针发送后n秒无反应重发  默认7200s
+			>>>> keepaliveInterval 持续时间秒级 保活探针发送间隔 默认75s
+		>>> perConnectionBufferLimitBytes uint32 每个连接buffer长度 默认1MB
+		>>> CommonHttpProtocolOptions ConnectionConfig_HttpProtocolOptions 通用http协议选项配置
+			>>>> idleTimeout 持续时间 空闲连接超时，超过一段时间没有请求时将关闭连接，默认1小时
+			>>>> maxHeadersCount uint32 最大header数，默认100个
+			>>>> maxStreamDuration 持续时间 对一个http请求/响应的流，总共生存的时间，如果超时则重置。默认不设置
+			>>>> headersWithUnderscoresAction enum[0, 1, 2] header里包含下划线执行的操作 0 允许，1拒绝，2丢弃，默认允许
+	>> healthChecks HealthChecks[] 健康检查
+		>>> timeout 持续时间 一次健康检查的等待时间，超时表示这一次失败
+		>>> interval 持续时间 发送检查间隔时间
+		>>> initialJitter 持续时间精确到毫秒 在一个0-抖动量的时间启动健康检查
+		>>> intervalJitter 持续时间精确到毫秒 抖动量的间隔，设置后间隔将为 interval + intervalJitter
+		>>> intervalJitterPercent uint32 抖动值百分比，如果都设置了，则间隔相加
+		>>> unhealthyThreshold uint32 n次健康检查不健康后，将host 标记为不健康；如果一个http返回503状态码则马上标记为不健康
+		>>> healthyThreshold uint32 n次健康检查后，将host标记为健康；当服务启动时，只需要一次检查成功则马上标记为健康
+		>>> reuseConnection bool 在连接间复用健康检查，默认为true
+		>>> healthCheck enum[http, tcp, grpc, custom][] 使用哪些健康检查器
+			>>>> http HealthCheck_HttpHealthCheck_ 
+				host string 可选，将添加到header host 字段
+				path string httppath路径
+				serviceName string 可选，服务名
+				requestHeadersToAdd HeaderValueOption 增加requestHeader项
+				requestHeadersToRemove string[] 删除requestHeader项
+				UseHttp2 bool  是否使用http2
+				ExpectedStatuses int64Range 范围 期待的状态码
+			>>>> tcp HealthCheck_TcpHealthCheck
+				send string     payload发送内容
+				recieve string  接收到的内容
+			>>>> grpc HealthCheck_GrpcHealthCheck
+				>>>>> serviceName string
+				>>>>> authority string    request时会设置authority header
+			>>>> costom HealthCheck_CustomHealthCheck
+				>>>>> Name string
+				>>>>> ConfigType 
+	>> OutlierDetection
+	>> useHttp2 bool 是否使用http2
+	>> failover Failover 故障转移，一个服务发生故障时，集群其他服务会接手相应的服务
+		>>> prioritizedLocalities Failover_PrioritizedLocality[]
+			>>>> localityEndpoints LocalityEndpoints[] LB相关找找
+				>>>>> locality region zone subzone upstream host的位置
+				>>>>> lbEndpoints LbEndpoint[]
+					>>>>>> address string
+					>>>>>> port    uint32
+					>>>>>> healthCheckConfig LbEndpoint_HealthCheckConfig
+						portValue uint32 可选的备用运行状况检查端口值。默认情况下，上游主机的运行状况检查地址端口与主机的服务地址端口相同。这提供了一个备用运行状况检查端口。使用非零值设置此值允许上游主机具有不同的运行状况检查地址端口
+						hostname  string 
+						path      string 故障转移endpoint 健康检查的地址
+						method    string 故障转移节点请求的方法 默认GET
+					>>>>>> upstreamSslConfig UpstreamSslConfig 参照上面
+					>>>>>> loadBalancingWeight uint32 负载均衡权值
+				>>>>> LoadBalancingWeight 权值
+	>> initialStreamWindowSize uint32     stream 级别流控 范围 2**16-1(默认) ---> 2**31-1 http2 
+	>> initialConnectionWindowSize uint32 连接级别流控 默认就是init_stream_window_size
+	>> maxConcurrentStreams uint32 最大并发流
+	>> httpProxyHostname string 设置proxy 
+	>> ignoreHealthOnHostRemoval bool 默认为false
