@@ -1,0 +1,16 @@
+
+> metrics-server
+	https://www.jianshu.com/p/1e825ac69f40 ???
+
+> gloo 1.7.23 需要导入的yaml
+	>> settings.yaml
+	>> upstream.yaml
+
+> TODOLIST
+	>> gloo 运行在kube-apiserver 1.23.4 的环境
+		>>> yaml 文件
+			schema 需要验证很多参数，可以先做的简单点，也可以使用 solo-kit 生成???
+	>> gw -> proxy -> xDS 对象转换流程
+	>> 各种对象校验的流程设计
+	>> dam 各种对象 -> xDS 流程设计
+

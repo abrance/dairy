@@ -1,0 +1,294 @@
+> TODO
+	solokit 使用
+	gloo 文档	
+	gloo GW VS 转换的代码
+	solokit json 怎么写 机制？
+
+> 部署 solo-kit 须知
+	使用 go clean -modcache 清除module 缓存
+	>> 使用 go mod edit -require=$path@$version  使用 go mod edit -replace=$path@$version=$new_path@$version 使用 go mod download 下载依赖即可
+	  go mod edit -require=github.com/solo-io/solo-apis@v0.0.0-20210122162349-0e170e74af10
+		go mod edit -replace=k8s.io/client-go=k8s.io/client-go@v0.19.6
+	需要安装 goimports   go get golang.org/x/tools/cmd/goimports		
+
+> 使用 solo-kit 须知
+	ExternalImport solo-apis skv2 需要一起被导入
+	通过 import _ "github.com/solo-io/solo-apis/codegen" 加入 solo-apis 依赖
+	通过编写 solo-kit.json 可以生成一系列 sk.go 文件 
+
+> solo-kit 报错
+	>> 报错 expected 'IDENT', found 'import'
+		proto 文件 go-package 选项不要以 / 结尾 本质上 生成了 option go_package = "" 空导包
+	>> 报错 ?
+		>> 模块名中不要包含 - 
+
+> solo-kit简单使用
+************************************************************
+根据proto文件生成pb.go
+------------------------------------------------------------
+# 创建项目目录
+mkdir mysk && cd mysk
+# 创建proto 文件存放目录 和 输出go 文件目录
+mkdir proto && mkdir pkg/v1 -p
+# 写 generate.go 文件
+vim generate.go
+vim demo.proto
+# 导入包并运行
+go mod init github.com/solo-io/mysk
+go mod tidy
+go run generate.go
+# 生成的文件放在 pkg/v1/ 下
+------------------------------------------------------------
+
+generate.go
+------------------------------------------------------------
+package main
+
+import (
+  "github.com/solo-io/go-utils/log"
+  "github.com/solo-io/solo-kit/pkg/code-generator/cmd"
+  //  "github.com/solo-io/solo-kit/pkg/code-generator/docgen/options"
+  //  "github.com/solo-io/solo-kit/pkg/code-generator/schemagen"
+  "github.com/solo-io/solo-kit/pkg/code-generator/sk_anyvendor"
+)
+
+//go:generate go run generate.go
+
+func main() {
+  log.Printf("starting generate")
+
+  protoImports := sk_anyvendor.CreateDefaultMatchOptions(
+    []string{"proto/*.proto", sk_anyvendor.SoloKitMatchPattern},
+  )
+  // protoImports.External["github.com/solo-io/solo-apis"] = []string{
+  //  "api/rate-limiter/**/*.proto", // Import rate limit API
+  //  "api/gloo-fed/fed/**/*.proto", // Import gloo fed gloo instance API
+  // }
+  // // Import gloo instance API dependencies
+  // protoImports.External["github.com/solo-io/skv2"] = []string{
+  //  "api/**/**/*.proto",
+  // }
+
+  generateOptions := cmd.GenerateOptions{
+    SkipGenMocks: true,
+    CustomCompileProtos: []string{
+      //      "github.com/solo-io/gloo/projects/gloo/api/grpc",
+      ".",
+    },
+    SkipGeneratedTests: true,
+    // helps to cut down on time spent searching for imports, not strictly necessary
+    // SkipDirs: []string{
+    //  "docs",
+    //  "test",
+    //  "projects/gloo/api/grpc",
+    // },
+    // RelativeRoot:  ".",
+    CompileProtos: true,
+    // GenDocs: &cmd.DocsOptions{
+    //  Output: options.Hugo,
+    //  HugoOptions: &options.HugoOptions{
+    //    DataDir: "/docs/data",
+    //    ApiDir:  "reference/api",
+    //  },
+    // },
+    ExternalImports: protoImports,
+    // ValidationSchemaOptions: &schemagen.ValidationSchemaOptions{
+    //  CrdDirectory:                 "install/helm/gloo/crds",
+    //  JsonSchemaTool:               "protoc",
+    //  RemoveDescriptionsFromSchema: true,
+    //  EnumAsIntOrString:            true,
+    // },
+  }
+  if err := cmd.Generate(generateOptions); err != nil {
+    log.Fatalf("generate failed!: %v", err)
+  }
+  log.Printf("finished generating code")
+}
+------------------------------------------------------------
+
+demo.proto
+------------------------------------------------------------
+syntax = "proto3";
+
+// proto package should match group name
+package mysk.solo.io;
+
+// go package should match generated package directory
+option go_package = "github.com/solo-io/mysk/pkg/v1";
+
+// define our spec + status types below
+message CircleSpec {
+    float radius = 1;
+}
+message CircleStatus {
+    float area = 1;
+}
+message SquareSpec {
+    float width = 1;
+}
+message SquareStatus {
+    float area = 1;
+}
+------------------------------------------------------------
+************************************************************
+
+> solo-kit proto 文件导入 solo-kit 包
+************************************************************
+demo.proto
+# 新增 import solo-kit.proto
+# 新增 option short_name plural_name行
+------------------------------------------------------------
+syntax = "proto3";
+
+// proto package should match group name
+package mysk.solo.io;
+
+import "github.com/solo-io/solo-kit/api/v1/solo-kit.proto";
+
+// go package should match generated package directory
+option go_package = "github.com/solo-io/mysk/pkg/v1";
+
+// define our spec + status types below
+message CircleSpec {
+		option (core.solo.io.resource).short_name = "cspe";
+    option (core.solo.io.resource).plural_name = "circlespec";
+    float radius = 1;
+}
+message CircleStatus {
+    option (core.solo.io.resource).short_name = "csta";
+    option (core.solo.io.resource).plural_name = "circlestatus";
+    core.solo.io.Metadata metadata = 2;
+
+    float area = 3;
+}
+message SquareSpec {
+    option (core.solo.io.resource).short_name = "sqspe";
+    option (core.solo.io.resource).plural_name = "squarespec";
+    core.solo.io.Metadata metadata = 4;
+
+    float width = 5;
+}
+message SquareStatus {
+    option (core.solo.io.resource).short_name = "sqsta";
+    option (core.solo.io.resource).plural_name = "squarestatus";
+    core.solo.io.Metadata metadata = 6;
+
+    float area = 7;
+}
+------------------------------------------------------------
+
+generate.go 新增 ExternalImports 
+------------------------------------------------------------
+  protoImports.External["github.com/solo-io/solo-apis"] = []string{
+   "api/rate-limiter/**/*.proto", // Import rate limit API
+   "api/gloo-fed/fed/**/*.proto", // Import gloo fed gloo instance API
+  }
+  // Import gloo instance API dependencies
+  protoImports.External["github.com/solo-io/skv2"] = []string{
+   "api/**/**/*.proto",
+  }
+------------------------------------------------------------
+
+demo.pb.go
+# 生成的 go 文件 新增导包 
+------------------------------------------------------------
+import _ "github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
+------------------------------------------------------------
+
+solo-kit.json
+------------------------------------------------------------
+{
+  "title": "Solo-Kit Testing",
+  "name": "mysk.solo.io",
+  "version": "v1",
+  "resource_groups": {
+    "demo.mysk.solo.io": [
+      {
+        "name": "CircleSpec",
+        "package": "mysk.solo.io"
+      },
+      {
+        "name": "CircleStatus",
+        "package": "mysk.solo.io"
+      },
+      {
+        "name": "SquareSpec",
+        "package": "mysk.solo.io"
+      },
+      {
+        "name": "SquareStatus",
+        "package": "mysk.solo.io"
+      }
+    ]
+  }
+}
+------------------------------------------------------------
+
+生成目录结构
+------------------------------------------------------------
+|-- pkg
+|   `-- v1
+|       |-- circle_spec_client.sk.go
+|       |-- circle_spec_reconciler.sk.go
+|       |-- circle_spec.sk.go
+|       |-- circle_status_client.sk.go
+|       |-- circle_status_reconciler.sk.go
+|       |-- circle_status.sk.go
+|       |-- demo_event_loop.sk.go
+|       |-- demo.pb.equal.go
+|       |-- demo.pb.go
+|       |-- demo.pb.hash.go
+|       |-- demo_simple_event_loop.sk.go
+|       |-- demo_snapshot_emitter.sk.go
+|       |-- demo_snapshot_simple_emitter.sk.go
+|       |-- demo_snapshot.sk.go
+|       |-- square_spec_client.sk.go
+|       |-- square_spec_reconciler.sk.go
+|       |-- square_spec.sk.go
+|       |-- square_status_client.sk.go
+|       |-- square_status_reconciler.sk.go
+|       `-- square_status.sk.go
+------------------------------------------------------------
+************************************************************
+
+> proto 文件注释
+	>> 注释会被加入到
+
+> x-gateway 登录组件
+	>> v1 功能
+		登录后拥有所有权限，没登陆没有权限访问 apiserver 任何接口
+	>> 前端文件权限
+		没权限的话不能访问某些前端组件，判断后端是否登录，没有登录不能访问前端文件
+	>> 结论
+		apiserver 登录组件选用简单的 选型即可
+
+> emacs 对比两个buffer
+	https://blog.csdn.net/fanwenjieok/article/details/53010414
+
+> metrics-server
+	https://www.jianshu.com/p/1e825ac69f40 ???
+
+> gloo 1.7.23 需要导入的yaml
+	>> settings.yaml
+	>> upstream.yaml
+
+> gloo 初始化时代码解读
+	>> main_setup.go Main(opts SetupOptions) error
+
+> Main(opts SetupOptions) error
+	>>
+
+> VS ROUTE的理解
+	>> ROUTE 名为路由，路由 意为 决定 网络流往哪个方向走，做什么处理 所以，ROUTE 的配置有 Action, Action里指定 Destination ，Destination 为 Upstream 的集合。
+	>> VS VirtualService名为 虚拟服务，类似 163.com ，虚拟服务下有多个域名，每个域名可指定多个 Upstream 的集合，也就是多个域名（路由）共同提供的服务，为虚拟服务
+
+> RDS Route DS用于HTTP连接管理过滤器动态获取路由配置
+	已经表明了 只负责 HTTP 协议的管理
+> LDS listener DS 
+
+
+0 4 * * * ls -t /data/tools/gitlab/backup/* | awk '$0~/backup/' | awk 'NR>5' | xargs rm -rf
+
+> TODO
+	gloo 调试运行
+	

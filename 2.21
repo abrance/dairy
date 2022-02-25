@@ -1,0 +1,229 @@
+> TODO
+	归纳
+	建仓 gloo 1.7.23
+	solokit 使用
+	gloo 文档	
+	gloo GW VS 转换的代码
+
+
+> gloo 项目
+	>> why
+		service mesh 服务网格 解决网络
+		  数据面 envoy  
+			管理面 gloo (dam) 发布给 envoy配置
+	>> 项目结构
+		子项目
+			gloo proxy 数据结构 存放着 所有 gloo 对象-> envoy 对象 配置
+			gateway 
+
+> git 创建远程分支
+	创建远程分支 https://blog.csdn.net/u012701023/article/details/79222731
+------------------------------------------------------------
+# 新建本地分支
+git checkout -b $new_branch_name
+# 查看本地分支状态
+git branch
+# 推送到远程，创建了远程同名分支
+git push origin $new_branch_name:$new_branch_name
+# 查看所有分支，包括远程
+git branch -a
+------------------------------------------------------------
+	删除远程分支
+------------------------------------------------------------
+# 推送一个空分支到远程相当于删除一个分支
+git push origin :$remote_branch_name_delete
+# 或使用 git push origin --delete $remote_branch_name_delete
+------------------------------------------------------------
+
+> solo-kit 掌握到什么程度
+    >> 使用方法
+    https://docs.solo.io/gloo-edge/latest/guides/dev/setting-up-dev-environment/
+
+|-- generate.go
+|-- go.mod
+|-- go.sum
+|-- pkg
+|   `-- v1
+|       `-- demo.pb.go
+|-- proto
+|   `-- demo.proto
+`-- vendor_any
+    |-- github.com
+    |   |-- envoyproxy
+    |   |   `-- protoc-gen-validate
+    |   |       `-- validate
+    |   |           `-- validate.proto
+    |   `-- solo-io
+    |       |-- protoc-gen-ext
+    |       |   |-- external
+    |       |   |   `-- google
+    |       |   |       `-- protobuf
+    |       |   |           |-- any.proto
+    |       |   |           |-- api.proto
+    |       |   |           |-- descriptor.proto
+    |       |   |           |-- duration.proto
+    |       |   |           |-- empty.proto
+    |       |   |           |-- field_mask.proto
+    |       |   |           |-- source_context.proto
+    |       |   |           |-- struct.proto
+    |       |   |           |-- timestamp.proto
+    |       |   |           |-- type.proto
+    |       |   |           `-- wrappers.proto
+    |       |   `-- extproto
+    |       |       `-- ext.proto
+    |       `-- solo-kit
+    |           `-- api
+    |               |-- external
+    |               |   |-- envoy
+    |               |   |   |-- api
+    |               |   |   |   `-- v2
+    |               |   |   |       |-- core
+    |               |   |   |       |   |-- address.proto
+    |               |   |   |       |   |-- base.proto
+    |               |   |   |       |   |-- http_uri.proto
+    |               |   |   |       |   `-- socket_option.proto
+    |               |   |   |       `-- discovery.proto
+    |               |   |   |-- solo-kit.json
+    |               |   |   `-- type
+    |               |   |       |-- percent.proto
+    |               |   |       `-- semantic_version.proto
+    |               |   |-- google
+    |               |   |   |-- api
+    |               |   |   |   |-- annotations.proto
+    |               |   |   |   `-- http.proto
+    |               |   |   `-- rpc
+    |               |   |       `-- status.proto
+    |               |   |-- kubernetes
+    |               |   |   `-- solo-kit.json
+    |               |   |-- metrics.proto
+    |               |   `-- trace.proto
+    |               |-- multicluster
+    |               |   `-- v1
+    |               |       `-- solo-kit.json
+    |               |-- v1
+    |               |   |-- metadata.proto
+    |               |   |-- ref.proto
+    |               |   |-- solo-kit.proto
+    |               |   `-- status.proto
+    |               `-- xds
+    |                   |-- solo-discovery-service.proto
+    |                   `-- solo-kit.json
+    `-- xiaoy.io
+        `-- my-sk1
+            `-- proto
+                `-- demo.proto
+
+> go get -u $PKG@$VERSION
+> go clean -i -n $PKG
+> go mod 高级https://zhuanlan.zhihu.com/p/103534192
+
+
+import "github.com/solo-io/solo-kit/api/v1/solo-kit.proto";
+//    option (core.solo.io.resource).short_name = "px";
+//    option (core.solo.io.resource).plural_name = "proxies";
+
+> gloo 更新配置流程图
+	>> 组件
+		gateway GW VS 资源发射器
+		gloo 8种资源监听器
+		gloo xDS发射器
+	>> 流程
+		>>> 准备
+			gateway 创建 资源发射器
+			gateway 创建 资源校验器
+			gloo 创建八种资源的监听器
+			gloo 生成 初始 proxy 
+			gloo 创建 proxy快照
+			gloo 创建 xDS 配置发射器
+		>>> 更新
+			gateway 更新 GW VS
+			gateway 校验 GW VS
+			gateway 调用 gloo 校验 GW VS
+			gateway 保存 GW VS 到 apiserver
+			gateway 触发proxy 对象更新
+			proxy 对象更新触发 xDS 快照更新
+			xDS 更新发送到 envoy
+************************************************************
+gateway 数据校验流程图
+------------------------------------------------------------
+    ┌───────────────────────┐   ┌───────────┐
+    │        gateway        │   │   gloo    │
+    │                       │   │           │
+  1 │   ┌───┐ 3    ┌─────┐  │   │   ┌───┐   │
+ ───┼─► │GWS├───►  │     │  │ 5 │   │   │   │
+    │   └───┘      │     ├──┼───┼─► │   │   │
+    │              │proxy│  │   │   │xDS│   │
+  2 │   ┌───┐ 4    │     │◄─┼───┼── │   │   │
+────┼─► │VSS├───►  │     │  │ 6 │   │   │   │
+    │   └───┘      └──┬──┘  │   │   └───┘   │
+    └─────────────────┼─────┘   └───────────┘
+                    7 │
+                      ▼
+                  ┌───────────────┐
+                  │   apiserver   │
+   1 post GW      └───────────────┘
+
+   2 post VS
+
+   3 verify GW options  前端校验 后端数据完整 
+
+   4 verify VS options
+
+   5 call if generate xDS (true of false)
+
+   6 return true or false
+
+   7 write proxy to apiserver(etcd)
+
+GW 数据校验流程 1 3 5 6 7(drop)
+
+------------------------------------------------------------
+gloo 接收GW对象更新流程图
+------------------------------------------------------------
+                       gloo
+    1     ┌────────────────────┐
+────────► │ proxyNamespaceChan │
+          └────────┬───────────┘
+                   │2
+                   ▼
+              ┌───────────┬───────────┐
+              │ proxyChan │           │
+              │           │proxy      │
+              │    3      │           │
+              │  ┌────────┤snapshot   │
+              │  │hasher  │           │
+              └──┴─┬──────┴───────────┘
+                   │4
+                   ▼
+          ┌───────────────┬────────────┐
+          │   ApiChan     │            │
+          │               │            │
+          │       5       │            │
+          │               │ApiSnapshot │
+          │  ┌────────────┤            │
+          │  │   hasher   │            │
+          │  └────────────┤            │
+          │  ┌────────────┤            │
+          │  │   emiter   │            │
+          └──┴─────┬──────┴────────────┘
+                   │6
+                   ▼
+            ┌───────────────┐
+            │    envoy      │
+            └───────────────┘
+
+   1 proxy update
+
+   2 proxyNamespaceChan send updated proxy to proxyChan
+
+   3 new proxy compare with Old proxySnapshot by hasher to consider
+     if sending data to ApiChan or droping away
+
+   4 proxyChan send data to ApiChan
+
+   5 new ApiSnapshot compare with Old ApiSnapshot by hasher
+     to consider if sending data to envoy by emiter
+
+   6 send xDS to envoy
+------------------------------------------------------------
+************************************************************

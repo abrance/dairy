@@ -1,0 +1,48 @@
+> TODO
+	gloo 调试运行
+	gateway 新的GW VS -> proxy 过程 老的 GW VS -> proxy 过程
+
+> go花括号
+	{} 里面作为一个独立的块，块中的变量有独立作用域
+
+> generatedDesiredProxies(ctx context.Context, snap *v1.ApiSnapshot) reconciler.GeneratedProxies
+	>> 概述
+		gateway 旧的转换过程： 将 proxyName 相同的 gateway 组装成 Listeners 保存到 Proxy 中，最终生成 map proxyName:proxy
+	>> 返回值 reconciler.GeneratedProxies
+		>>> type GeneratedProxies map[*gloov1.Proxy]reporter.ResourceReports  map, Proxy:ResourceReports
+			>>>> Proxy {Listeners}
+			>>>> ResourceReports map[resources.InputResource]Report  map, InputResource:Report
+				InputResource {Resource} ???  输入的资源
+				Report {Warning []string, Errors error}  状态
+	>> 函数体
+		>>> GatewaysByProxyName(gateways GatewayList) map[string]GatewayList 返回map，把 gateway 中 proxyName 拿出来，作为 PROXY_NAME: GWS 中 的键
+			e.g. GW1{prxname: "A", ...} GW2{prxname: "A"} GW3{prxname: "B"} return {"A": [GW1, GW2], "B": [GW3]}
+		>>> Translate(ctx context.Context, proxyName, namespace string, snap *v1.ApiSnapshot, gatewaysByProxy v1.GatewayList) (*gloov1.Proxy, reporter.ResourceReports)  将 snap 和 gatewaysByProxy 组装成了 listeners 由 Proxy 保存
+			>>>> filterGateways(gateways v1.GatewayList, namespace string) v1.GatewayList  根据 gateway 所属的 namespace 来过滤，是否把它加入到这个 gateway 集合，如果设置了都取所有的 gateway 就全部加进来，返回 gateway 的数组
+			>>>> Accept(res ...InputResource) ResourceReports  将资源数组中 单个资源作为 resourceReports 的key 创建一个键值对
+			>>>> validateGateways(gateways GatewayList, virtualServices VirtualServiceList, reports ResourceReports)  验证 gateway 中 http类型gateway 是否 包含 和 VS 中同名引用，验证是否有重复地址的 gateway
+			>>>> GenerateListeners
+				>>>>> HttpTranslator GenerateListeners(ctx context.Context, proxyName string, snap *v1.ApiSnapshot, filteredGateways []*v1.Gateway, reports reporter.ResourceReports) []*gloov1.Listener  将 snap 中的 VS 对象 组装成了 HttpListener对象
+					>>>>>> getVirtualServicesForGateway(gateway *v1.Gateway, virtualServices v1.VirtualServiceList) v1.VirtualServiceList 获取 与 gateway 中的 VS 对象 重叠的 VS 对象
+					>>>>>> applyGlobalVirtualServiceSettings(ctx context.Context, virtualServices v1.VirtualServiceList) 加上 全局配置的 oneWayTls ，如果 VS 的 oneWayTls 没配
+					>>>>>> validateVirtualServiceDomains(gateway *v1.Gateway, virtualServices v1.VirtualServiceList, reports reporter.ResourceReports)  把 domain 重复的 VS 取出来，将 domain 和 VS 都取出来，报告错误
+					>>>>>> desiredListenerForHttp(gateway *v1.Gateway, proxyName string, virtualServicesForGateway v1.VirtualServiceList, tables v1.RouteTableList, reports reporter.ResourceReports) *gloov1.Listener 根据 VS 对象 进行 HttpListener 的组装，ssl的配置放到 ListenerSslConfigurations 中
+						>>>>>>> virtualServiceToVirtualHost(vs *v1.VirtualService, gateway *v1.Gateway, proxyName string, tables v1.RouteTableList, reports reporter.ResourceReports) (*gloov1.VirtualHost, error)  通过 VS 组装 VH 对象
+							NewRouteConverter
+							ConvertVirtualService
+							appendSource(obj ObjectWithMetadata, source resources.InputResource)  VS 的 metadata 给VH 的 metadata 赋值
+				>>>>> TcpTranslator GenerateListeners(ctx context.Context, proxyName string, snap *v1.ApiSnapshot, filteredGateways []*v1.Gateway, reports reporter.ResourceReports) []*gloov1.Listener
+					makeListener(gateway *v1.Gateway) *gloov1.Listener  将 gateway的参数给 Listener 赋值
+					appendSource(obj ObjectWithMetadata, source resources.InputResource)  listener metadata 赋值
+			>>>> Proxy{}  由Proxy 保存Listeners 对象
+					
+						
+					
+
+	>> 解释
+		>>> 
+	>> 结论
+
+> go := 短赋值
+	a := map 短赋值符也可以用于 map 等类型的初始化
+
