@@ -1,0 +1,35 @@
+> TODO
+	gloo 运行
+
+> goland 远程调试
+	>> 安装 dlv
+	>> dlv 运行远程服务
+		dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient exec $cmd_run
+		e.g. dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient exec ./main
+	>> 打断点，进行本地goland debug
+
+> 配置加载代码
+> kubeOrFileSettingsClient(ctx context.Context, setupNamespace, settingsDir string) (v1.SettingsClient, error)
+	>> 概述
+		获取到保存了必要的初始化配置的数据结构(客户端)，两种，文件客户端和k8s客户端，k8s客户端使用crd 保存的setting，文件使用文件目录保存
+	>> 结构
+		>>> FileResourceClientFactory{RootDir string}  保存 rootDir
+		>>> KubeResourceClientFactory{Crd Crd, Cfg Config, SharedCache SharedCache, NamespaceWhitelist []string, ResyncPeriod Duration, Cluster string} 保存crd k8s客户端配置 等信息
+		>>> NewSettingsClient(ctx context.Context, rcFactory factory.ResourceClientFactory) (SettingsClient, error)  通过一个rcFactory 初始化一个 resourceClient 对象
+			>>>> NewSettingsClientWithToken(ctx context.Context, rcFactory factory.ResourceClientFactory, token string) (SettingsClient, error) 使用ResouceClientFactory初始化一个 resourceClient 对象
+				>>>>> NewResourceClient(ctx context.Context, params NewResourceClientParams) (clients.ResourceClient, error) 约定传入resoureclient配置返回 resourceclient
+					NewResourceClientParams{ResourceType Resource, Token string}  Resource 为k8s 的资源对象 Token???
+				>>>>> NewSettingsClientWithBase(rc clients.ResourceClient) SettingsClient  把resourceClient 保存在settingsClient 中
+		>>> GetConfig(masterURL, kubeconfigPath string) (*rest.Config, error)  k8s 客户端配置，有配置使用配置，不然使用环境变量 KUBECONFIG，再不然使用gloo 默认的inClusterConfig
+	>> 结论
+
+> 启动gloo
+	>> 需要定义Settings 的crd和 settings 的cr
+	>> 需要Upstream 的crd
+	>> Proxy crd
+	>> UpstreamGroup crd
+	
+	>> AuthConfig   企业版配置
+	>> Ratelimitconfig  企业版配置
+
+			

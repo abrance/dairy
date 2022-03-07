@@ -1,0 +1,184 @@
+> TODO
+  转换设计文档
+
+
+> 爱好
+  遥控小车
+
+ng ng解决管理面高可用
+ngs 解决多个数据中心集中管理
+
+ng 里面有 floatip listener 提供port
+server 根据 ssl sni进行区分
+VS 根据 HOST 区分 www.our.com mes.our.com
+
+    插件与 VS 绑定, VS plugin 1:N  map [plugin_name] {plugin_config_opt} 由此  进行插件的配置下发 ，guo ACL 配置项 xiong 怎么绑定 插件 VS；每个插件写回调函数中反序列化； 插件加载后 注册到 全局map。。。
+    proxy 中  配置选项反序列化为 protobuf any 类型；转化 调用 插件定义的回调，对 json 进行 protobuf any 类型的转换
+    proxy 的概念没有发生变化
+    
+    envoy  怎么获取到xDS配置的，怎么获取到自己那一份   proxy 对应 ns 的个数，包含多个 listener 同一ng_name 的 gw 下的 listener
+
+    ng_name: proxy 1:1 proxy: envoy 1:1
+
+    创建 ng 的时候，同时生成 envoy 配置
+*
+
+
+
+> dam 项目
+  >> 概述
+    从技术角度来看 dam项目，它是一个基于 envoy proxy 的管理面，一个API网关的实现。这明确了dam项目的任务，提供用户一系列api，通过动态下发envoy 的xDS配置，对流入数据中心的网络流量进行管理。
+  >> 问题
+    数据中心为 一个地域的 服务器集群，拥有 电力冗余 网络冗余的 实力。如果 数据中心 
+
+     ┌──────────┐                ┌─────────────┐
+     │ user end │                │  network    │
+     └──────────┘                └─┬───┬──┬──┬─┘
+         │                       3 │   │  │  │
+         │ 1                       │   │  │  │
+         ▼                         ▼   ▼  ▼  ▼
+  Control plane                  ┌────────────────────────────┐      ┌───────────────┐
+┌─────────────────────────┐      │        data center         │      │  data center  │
+│                         │      │ ┌─────┐  ┌─────┐  ┌─────┐  │      │               │
+│  Proxy    Proxy   Proxy │      │ │envoy│  │envoy│  │envoy│  │      │               │
+│ ┌─────┐ ┌─────┐ ┌─────┐ │      │ └─────┘  └─────┘  └─────┘  │      │               │
+│ │ xDS │ │ xDS │ │ xDs │ ├───►  │                            │      │               │
+│ └─────┘ └─────┘ └─────┘ │  2   │ ┌─────┐  ┌─────┐  ┌─────┐  │      │               │
+│  Proxy    Proxy   Proxy │      │ │envoy│  │envoy│  │envoy│  │      │     {...}     │
+│ ┌─────┐ ┌─────┐ ┌─────┐ │      │ └─────┘  └─────┘  └─────┘  ├───►  │               │
+│ │ xDS │ │ xDS │ │ xDs │ │      │                            │      │               │
+│ └─────┘ └─────┘ └─────┘ │      └─────────────┬──────────────┘      └───────────────┘
+└─────────────────────────┘                    │
+                                  ┌────────────┴──────────────┐
+                                  │         Mechines          │
+                                  │   ┌───────┐   ┌───────┐   │
+                                  │   │gateway│   │service│   │
+                                  │   └───────┘   └───────┘   │
+                                  │   ┌───────┐   ┌───────┐   │
+                                  │   │gateway│   │service│   │
+                                  │   └───────┘   └───────┘   │
+                                  │   ┌───────┐   ┌───────┐   │
+                                  │   │gateway│   │service│   │
+                                  │   └───────┘   └───────┘   │
+                                  └───────────────────────────┘   
+1 controlplane offer APIGATEWAY for User to configure envoy
+
+2 controlplane control datacenterEnvoy by xDS
+
+3 datacenterEnvoy decide networkAction , e.g. flow to Mechines (North-South), flow to other datacenter(east-west), or directResponse
+
+
+> envoy 如何获取dam生成的配置
+  >> 问题
+------------------------------------------------------------
+┌───────────────────────────────┐
+│            dam                │
+│                               │
+│         xDS snapshot          │
+│                               │
+│   proxy1    proxy2    proxy3  │
+│   ┌────┐    ┌────┐    ┌────┐  │
+│   │LDS │    │LDS │    │LDS │  │
+│   │RDS │    │RDS │    │RDS │  │
+│   │CDS │    │CDS │    │CDS │  │
+│   │EDS │    │EDS │    │EDS │  │
+│   │... │    │... │    │... │  │
+│   └────┘    └────┘    └────┘  │
+└───────────────────────────────┘
+     ▲        ▲          ▲
+     │        │          │
+ ┌───┴────┐ ┌─┴──────┐ ┌─┴──────┐
+ │ envoy1 │ │ envoy2 │ │ enovy3 │
+ └────────┘ └────────┘ └────────┘
+
+问题：dam 生成的 xDSsnapshot并非只对一台 envoy 进行管理，那么当多台envoy 来取配置时，如何获取属于自己的xDS配置
+nodegroup 的概念：nodegroup 是由 node组成的，在同一nodegroup 下面的机器的所有配置都相同，唯一不同的是 nodegroup 拥有 floatip，floatip 在哪个 node，表明这台 node enovy是主。当envoy加入到一个nodegroup时，将为envoy生成初始化配置，不仅获取了远程管理面的地址，同时也表示了自己的 proxy_name（proxy_name对应的就是nodegroup_name，ng_name）。在dam生成xDSsnapshot时，会根据 proxy 进行分组（可能不一定通过name进行分组，id???），envoy获取xDS配置时，只对应proxy下的配置即可
+------------------------------------------------------------
+
+> 插件
+  >> 插件动态加载的时机
+    插件在应用市场下载后 创建插件实例时 进行 动态加载插件
+  >> 前提
+    >>> 插件最少需要两个函数 (验证插件配置(json)是否合法，插件配置转换为protobuf any类型)
+  >> 生命周期
+    >>> 插件或插件实例发生绑定上的更新，将触发 VS 的更新，然后进行 webhook VS的校验（这时可以调用插件上的接口进行校验）
+    >>> 插件的绑定：插件实例和插件配置通过 VS typed_per_filter_config map 保存 后面生成 Proxy保存
+    >>> Proxy 更新导致 dam 进行 xDSsnapshot 的生成，但是之前需要通过 xDS的校验，请求envoy 的校验接口，分为两种校验：类型校验，数值校验，envoy负责类型校验，envoy插件负责插件中数值校验，如果不通过则丢弃；通过后将生成 xDSsnapshot 由envoy来取自己的 xDS
+	> 导入了插件时已经进行了go 动态加载插件，生成插件实例时已经可以对插件配置进行校验，VS webhook 对插件配置进行校验即可，gateway这一层不需要对插件进行校验，直接传到 xDSsnapshot即可		
+
+> 转换设计文档
+  >> 概述
+    dam项目目前由两个子项目组成，gateway子项目和 dam 子项目，(为了区分 gateway子项目和项目中的 gateway对象，将gateway对象称为GW 对象)。gateway 负责 GW VS 对象的管理，dam 负责upstream endpoint 对象的管理。gateway 将 GW VS Route 对象转为 Proxy对象，dam 将 Proxy upstream Endpoint 对象转换为 xDSSnapshot 对象。
+  >> 思路
+    dam 基于 gloo 1.7 版本进行二次开发而来，对比 dam 子项目 和 gloo 子项目，upstream endpoint 对象没有发生变化，而gateway 子项目中 GW VS 对象发生了很大的变化（proxy对象没有发生变化，因为proxy对应的是envoy配置xDS协议有关）。通过分析可以认识到，dam和 gloo层的对象转换没有发生任何变化；然而gateway 这一层中转换为 Proxy 时，发生了比较大的变化，虽然如此，在这一层的转换过程中，应该参照之前的流程实现转换逻辑，做到大范围的代码复用，快速开发以实现需求，这是dam 转换需求的实现思路。
+  >> 准备工作
+    >>> gloo GW(VS) -> PROXY 具体转换流程
+      gloo Proxy 生成过程：https://www.mubucm.com/doc/2sFXlYerCIC
+      
+      -- ** 将同一proxyName的GW组成一个proxy:GWList a的map
+      遍历 map，拿到同一个ProxyName下的GWList 
+      根据namespace过滤 GWList
+      ** 验证 gateway 中 http 类型 gateway 中的 VS 是否真实存在，验证是否有重复地址的 gateway，异常则丢弃
+      ** 遍历GWList，获取GW，然后遍历 snap 里的 VSList，如果GW 里存在就添加到 VSForGWList
+      ** 验证 VSForGWList VS domain，如果重复，则报异常
+      如果 VS 的 oneWayTls没配，加上全局默认配置的 oneWayTls      
+      ** 通过VS组装 VH 对象，把 VHList 和 sslConfig 组装到 listener 中
+      ListenerList 组装成 Proxy
+      
+    >>> gloo Proxy -> xDSsnapshot
+      gloo xDSsnapshot 生成过程 https://www.mubucm.com/doc/1cTTAfMIFWS
+
+  >> 流程
+    >>> gateway 生成 proxy 对象
+      https://www.mubucm.com/doc/43879ZUV63S
+    >>> dam  生成xDSsnapshot 对象
+			目前与 gloo 一样
+
+
+> 不同 GW 之间的 Listener 绑定的 port 是否可以 重叠？
+  >> GW 是什么概念？
+    >>> GW NG n:n 关系
+      e.g.  NG1:[GW1, GW2] NG2:[GW1, GW3]  GW1: [L1, L2] GW2: [L3, L4] GW3: [L5, L6] 最后转化为envoy 机器上 envoy1: [L1, L2, L3, L4] envoy2: [L1, L2, L5, L6] 这就要求 L1 L2 L3 L4 不能同端口 L1 L2 L5 L6 不能同端口，但[L3 L4] 和[L5 L6] 可以同端口。结论：不同nodegroup 中的 Listener 可以端口重叠，同一 nodegroup 中的 Listener 端口不可以重叠
+  >> 结论
+    不同nodegroup 中的 Listener 可以端口重叠，同一 nodegroup 中的 Listener 端口不可以重叠
+      
+
+> generatedDesiredProxies(ctx context.Context, snap *v1.ApiSnapshot) reconciler.GeneratedProxies
+	>> 概述
+		gateway 新的转换过程： 将 ng_name 相同的 GW 合并组装成大的 Listeners 保存到 Proxy 中，最终生成 map ng_name:proxy
+	>> 返回值 reconciler.GeneratedProxies
+		>>> type GeneratedProxies map[*gloov1.Proxy]reporter.ResourceReports  map, Proxy:ResourceReports
+			>>>> Proxy {Listeners}
+			>>>> ResourceReports map[resources.InputResource]Report  map, InputResource:Report
+				InputResource {Resource} ???  输入的资源
+				Report {Warning []string, Errors error}  状态
+	>> 函数体
+		>>> GatewaysByNGName(gateways GatewayList) map[string]GatewayList 返回map，把 gateway 中 ng_name 拿出来，作为 ng_name: GWS 中 的键
+			e.g. GW1:[NG1, NG2] GW2:[NG1] GW3:[NG2] -> NG1:[GW1, GW2] NG2:[GW1, GW3]
+		>>> Translate(ctx context.Context, NGName, namespace string, snap *v1.ApiSnapshot, gatewaysByNG v1.GatewayList) (Proxy, ResourceReports)  将 snap 和 gatewaysByNG 组装成了 listeners 由 Proxy 保存
+			>>>> Accept(res ...InputResource) ResourceReports 接收GW VS 资源的报告，最后生成一个树形的结构，任何一层级发生异常，可以快速定位
+			>>>> validateGateways(gateways GatewayList, virtualServices VirtualServiceList, reports ResourceReports)  校验同一NG中的 GW中的 Listener 是否 端口重叠
+			>>>> 遍历 同一NG 的GWS listeners
+			>>>> GenerateListener(ctx context.Context, NGName string, snap *v1.ApiSnapshot, listener Listener, reports ResourceReports) []Listener 将每个 servers 组装成了 Proxy listener对象
+				>>>>> getGWServersForListener(ctx context.Context, listener Listener) []GWServer  获取一个 listener 下所有 server
+				>>>>> validateServers(ctx Context, servers []GWServer, listener Listener, reports []ResourceReporters) 校验一个listener下 server的 sni 是否重叠，校验 没有 ssl 配置的 server 是否数量超过1（server 间通过 sni 进行匹配的）
+				>>>>> GenerateServer(ctx Context, snap ApiSnapshot, server GWServer, report []ResourceReporters) Server  遍历了GWServer，每个 GWServer生成一个 server 对象
+					>>>>>> getVirtualServicesForServer(server GWServer, virtualServices VirtualServiceList) v1.VirtualServiceList 获取这个 Server 的 VS 对象
+					>>>>>> validateVirtualServiceDomains(server GWServer, virtualServices v1.VirtualServiceList, reports reporter.ResourceReports)  因为envoy需要通过domain进行 VH匹配，把 domain 重复的 VS 取出来，将 domain 和 VS 都取出来，报告异常
+					>>>>>> desiredServerForHttp(virtualServices v1.VirtualServiceList, reports reporter.ResourceReports) Server 把同一server下的 VS组装为 VH 并作为列表 组装为一个Proxy server 对象
+						>>>>>>> virtualServiceToVirtualHost(vs VirtualService, reports reporter.ResourceReports) (*gloov1.VirtualHost, error)  通过 VS 组装 VH 对象（放弃路由表组件）（是否需要路由短路提醒功能）
+							>>>>>>>> validateRoute(vs VirtualService, reports ResourceReporters)  验证 Route 的匹配是否合法（包括正则表达式语法的验证等，这里不进行重叠的验证，因为Route完全可以重叠，重叠后只会按照先来后到执行，第二次就不会走到这个路由的，唯一需要担心的是路由短路现象，比较复杂）
+							>>>>>>>> generateRoute(vs VirtualService, reports ResourceReporters) (RouteList, error)  根据VS生成 RouteList 对象
+								getVSRoute(vs VirtualService, reports ResourceReporters)  RouteList 获取 VS 中的 Route 对象
+								validateAndMergeRoute(routes RouteList) (RouteList,  error) 校验是否由route可以合并并且执行合并操作（匹配的合并和头部维护的合并）
+							>>>>>>>> getVSFilter(vs VirtualService) FilterMap  取 map，获取插件实例protobuf.any 的配置（调用插件的函数生成的）map<string, google.protobuf.Any> typed_per_filter_config
+							>>>>>>>> VH{} 根据 VS 配置 filterMap  Routes 组装 VH 对象 
+						>>>>>>> Server{} 根据 GWServer option 和 VH 组装 Proxy server 对象
+				>>>>> desiredListenerForHttp(listener Listener, NGName string, snap ApiSnapshot, reports reporter.ResourceReports) *gloov1.Listener  根据ListenerOptions server 地址端口组装为 Proxy listener 对象
+			>>>> Proxy{}  由Proxy Listeners 组装为 Proxy
+
+
+> VS 中 Route 是没有 插件字段的，因为插件实例绑定直接触发 Apisnapshot
+> 插件和插件实例也是CRD，被 snapshot 监视，snap.pluginInstances 可以获取到 插件实例对象 snap.pluginInstances.bindType 为绑定级别 VS Route，snap.plugininstances.bindRouteid 为绑定 对象的Routeid ，snap.pluginInstances.bindVSName 为绑定VS name，当插件实例绑定发生改变时，会触发snapshot更新
+								-- 删除 ：把snapshot 中插件实例遍历，取出 VS 里 绑定到 route 最后产生 map R1:[P1, P2] R2:[P1, P3]
+								-- 删除 ：desiredRoute(route Route, pluginInstances []Plugins, reports ResouceReports) RouteList 将Route 和属于它的插件实例 组装成Proxy Route 对象

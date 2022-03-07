@@ -1,0 +1,124 @@
+> TODO
+	GW -> xDS 哪些参数被装配上了
+	
+DAM_GW
+------------------------------------------------------------
+> 新 gateway proto fields
+	>> ssl bool
+
+message Gateway {
+**    repeated GwListener listeners = 4;
+	//本gateway所在的proxy
+**    repeated string ng_names = 5;
+}
+
+//TCP Server当前版本不支
+message GwTcpServer {
+}
+
+message GwHttpServer {
+    gloo.solo.io.HttpServerOptions options = 1;
+    repeated core.solo.io.ResourceRef virtual_services = 2;
+}
+
+message GwServer {
+        gloo.solo.io.TlsServer ssl_configurations =1;
+	//google.protobuf.BoolValue use_proxy_proto = 2;
+	oneof server_type {
+        //
+             GwHttpServer  http_server= 3;
+             GwTcpServer tcp_listener = 4;
+    }
+}
+
+message GwListener {
+	//绑定的地址只能是float IP，该IP地址存放在NG里，这里如何获取得到 
+**	string bind_address = 2;
+**  uint32 bind_port = 3;
+**	repeated GwServer  srvs=4;
+	//listener选项
+**    gloo.solo.io.ListenerOptions options = 8;
+}
+
+------------------------------------------------------------
+
+GLOO_GW
+------------------------------------------------------------
+message Gateway {
+    // if set to true, only use virtual services with ssl configured.
+    bool ssl = 1;
+    // the bind address the gateway should serve traffic on
+    string bind_address = 3;
+    // bind ports must not conflict across gateways for a single proxy
+    uint32 bind_port = 4;
+    // top level optional configuration for all routes on the gateway
+    gloo.solo.io.ListenerOptions options = 5;
+
+    google.protobuf.BoolValue use_proxy_proto = 8;
+    oneof GatewayType {
+        HttpGateway http_gateway = 9;
+        TcpGateway tcp_gateway = 10;
+    }
+    repeated string proxy_names = 12;
+}
+
+message HttpGateway {
+    repeated core.solo.io.ResourceRef virtual_services = 1;
+
+    map<string, string> virtual_service_selector = 2;
+
+    repeated string virtual_service_namespaces = 3;
+
+    gloo.solo.io.HttpListenerOptions options = 8;
+}
+
+message TcpGateway {
+    // TCP hosts that the gateway can route to
+    repeated gloo.solo.io.TcpHost tcp_hosts = 1;
+    // TCP Gateway configuration
+    gloo.solo.io.TcpListenerOptions options = 8;
+}
+------------------------------------------------------------
+
+> Proxy 的理解
+
+     ┌──────────┐                ┌─────────────┐
+     │ user end │                │  network    │
+     └──────────┘                └─┬───┬──┬──┬─┘
+         │ 1                      3│   │  │  │
+         ▼                         ▼   ▼  ▼  ▼
+  Control plane                 ┌─────────────────────────────┐              ┌─────────────────────────────┐
+┌─────────────────────────┐     │         data center         │              │         data center         │
+│                         │     │  ┌─────┐  ┌─────┐  ┌─────┐  │              │                             │
+│  Proxy    Proxy   Proxy │     │  │envoy│  │envoy│  │envoy│  │              │                             │
+│  ┌──┐     ┌──┐    ┌──┐  │     │  └─────┘  └─────┘  └─────┘  │              │                             │
+│  │GW│     │GW│    │GW│  ├───► │                             │              │                             │
+│  ├──┤     ├──┤    ├──┤  │     │  ┌─────┐  ┌─────┐  ┌─────┐  │              │                             │
+│  │GW│     │GW│    │GW│  │     │  │envoy│  │envoy│  │envoy│  │              │                             │
+│  ├──┤     ├──┤    ├──┤  │     │  └─────┘  └─────┘  └─────┘  ├────────────► │          {...}              │
+│  │GW│     │GW│    │GW│  │     │                             │              │                             │
+│  └──┘     └──┘    └──┘  │     │  ┌─────┐  ┌─────┐  ┌─────┐  │              │                             │
+│                         │     │  │envoy│  │envoy│  │envoy│  │              │                             │
+└─────────────────────────┘     │  └─────┘  └─────┘  └─────┘  │              │                             │
+                                └──────────────┬──────────────┘              └─────────────────────────────┘
+                                               │
+                                               ▼
+                                  ┌───────────────────────────┐
+                                  │         Mechines          │
+                                  │   ┌───────┐   ┌───────┐   │
+                                  │   │gateway│   │service│   │
+                                  │   └───────┘   └───────┘   │
+                                  │   ┌───────┐   ┌───────┐   │
+                                  │   │gateway│   │service│   │
+                                  │   └───────┘   └───────┘   │
+                                  │   ┌───────┐   ┌───────┐   │
+                                  │   │gateway│   │service│   │
+                                  │   └───────┘   └───────┘   │
+                                  └───────────────────────────┘
+1 controlplane offer APIGATEWAY for User to configure envoy
+2 controlplane control datacenterEnvoy by xDS
+3 datacenterEnvoy decide networkAction , e.g. flow to Mechines (North-South), flow to other datacenter(east-west), or directResponse
+
+Proxy 意思是作为 envoy proxy
+
+

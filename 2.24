@@ -202,6 +202,17 @@ message VirtualService {
     // Virtual host options contain additional configuration to be applied to all traffic served by the Virtual Host.
     // Some configuration here can be overridden by Route Options.
     gloo.solo.io.VirtualHostOptions options = 3;
+
+
+		插件与 VS 绑定, VS plugin 1:N  map [plugin_name] {plugin_config_opt} 由此  进行插件的配置下发 ，guo ACL 配置项 xiong 怎么绑定 插件 VS；每个插件写回调函数中反序列化； 插件加载后 注册到 全局map。。。
+		proxy 中  配置选项反序列化为 protobuf any 类型；转化 调用 插件定义的回调，对 json 进行 protobuf any 类型的转换
+		proxy 的概念没有发生变化
+		
+		envoy  怎么获取到xDS配置的，怎么获取到自己那一份   proxy 对应 ns 的个数，包含多个 listener 同一ng_name 的 gw 下的 listener
+
+		ng_name: proxy 1:1 proxy: envoy 1:1
+
+		创建 ng 的时候，同时生成 envoy 配置
 **    map<string, string> typed_per_filter_config =4;
     // Display only, optional descriptive name.
     // Unlike metadata.name, DisplayName can be any string
