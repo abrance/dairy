@@ -1,0 +1,90 @@
+> TODO
+	>> 使用 yaml 测试并编写转换逻辑
+		VS
+	
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: validation-webhook-tls-cfg-dev
+  labels:
+    app: admission-webhook-tls-dev
+webhooks:
+  - name: required-labels.qikqiak.com.dev
+    clientConfig:
+      service:
+        name: admission-webhook-tls-svc-dev
+        namespace: default
+        path: "/validate"
+      caBundle: ${CA_BUNDLE}
+    rules:
+      - operations: [ "CREATE" ]
+        apiGroups: ["apps", ""]
+        apiVersions: ["v1"]
+        resources: ["deployments","services"]
+    namespaceSelector:
+      matchLabels:
+        admission-webhook-tls: enabled
+
+	apiVersion: admissionregistration.k8s.io/v1
+	kind: ValidatingWebhookConfiguration
+	metadata:
+	  name: gloo-gateway-validation-webhook-gloo-system
+	webhooks:
+	- name: gateway.gloo-system.svc  # must be a domain with at least three segments separated by dots
+	  clientConfig:
+	    service:
+	      name: gateway
+	      namespace: gloo-system
+	      path: "/validation"
+	    caBundle: "" # update manually or use certgen job or cert-manager's ca-injector
+	  rules:
+	  - operations: [ "CREATE", "UPDATE", "DELETE" ]
+	    apiGroups: ["gateway.solo.io"]
+	    apiVersions: ["v1"]
+	    resources: ["*"]
+	  - operations: [ "CREATE", "UPDATE", "DELETE" ]
+	    apiGroups: ["gloo.solo.io"]
+	    apiVersions: ["v1"]
+	    resources: ["upstreams"]
+	  - operations: [ "DELETE" ]
+	    apiGroups: ["gloo.solo.io"]
+	    apiVersions: ["v1"]
+	    resources: ["secrets"]
+	  sideEffects: None
+	  matchPolicy: Exact
+	  admissionReviewVersions:
+	    - v1beta1 # v1beta1 still live in 1.22 https://github.com/kubernetes/api/blob/release-1.22/admission/v1beta1/types.go#L33
+	  failurePolicy: Ignore
+
+> crd versions served storage 字段详解
+	>> 链接 https://kubernetes.io/zh/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definition-versioning/
+	>> 字段
+	  - name: v1beta1
+    # 每个 version 可以通过 served 标志启用或禁止
+    served: true
+    # 有且只能有一个 version 必须被标记为存储版本
+    storage: true
+    # schema 是必需字段
+		schema: 
+
+> crd metadata name 报错
+	>> a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character  不能使用下划线命名，但是可以用短横线
+
+> apiserver swagger
+	>> 操作
+------------------------------------------------------------
+# 开启proxy ，这样可以使用 这个身份进行代理，会阻塞，可以另起终端
+kubectl proxy --port=8080
+# 将swagger 所需要的数据导出，作为 json 存放
+curl localhost:8080/openapi/v2 > k8s-swagger.json
+# 将 json 文件导入到 docker 容器中提供swagger服务
+docker run \
+    --rm \
+    -d \
+    -p 80:8080 \
+    -e SWAGGER_JSON=/k8s-swagger.json \
+    -v $(pwd)/k8s-swagger.json:/k8s-swagger.json \
+    swaggerapi/swagger-ui
+------------------------------------------------------------
+	>> 原理
+
