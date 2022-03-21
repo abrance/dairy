@@ -15,3 +15,60 @@
 			>>>> 大幅增加烹调时间
 			前面说了，缩短烹调时间可以让肉很好的保住水分。而大幅增加烹调时间，则是对应的特殊的部位——比如说牛展，牛腩，牛腱，猪五花肉这类型。通过久煮让肉变酥变软，并且跑掉的肉汁重新“煮进去”。
 
+> generatedDesiredProxies(ctx context.Context, snap *v1.ApiSnapshot) reconciler.GeneratedProxies
+	>> 概述
+		gateway 新的转换过程： 将 ng_name 相同的 GW 合并组装成大的 Listeners 保存到 Proxy 中，最终生成 map ng_name:proxy
+	>> 返回值 reconciler.GeneratedProxies
+		>>> type GeneratedProxies map[Proxy]reporter.ResourceReports  map, Proxy:ResourceReports
+			>>>> Proxy {Listeners}
+			>>>> ResourceReports map[resources.InputResource]Report  map, InputResource:Report
+				InputResource {Resource}   作为crd输入的资源 GW VS 等
+				Report {Warning []string, Errors error}  状态
+	>> 函数体
+		>>> GatewaysByNGName(gateways GatewayList) map[string]GatewayList 返回map，把 gateway 中 ng_name 拿出来，作为 ng_name: GWS 中 的键
+			e.g. GW1:[NG1, NG2] GW2:[NG1] GW3:[NG2] -> NG1:[GW1, GW2] NG2:[GW1, GW3]
+		>>> 遍历 map
+		>>> Translate(ctx context.Context, ngName, namespace string, snap ApiSnapshot, gatewaysByNG GatewayList) (Proxy, ResourceReports)  将 snap 和 gatewaysByNG 组装成了 listeners 由 Proxy 保存
+			>>>> filterGateways(gateways GatewayList, namespace string) GatewayList  根据 gateway 所属的 namespace 来 决定 是否把它加入到这个 gateway 集合，如果设置了都取所有的 gateway 就全部加进来
+			>>>> Accept(res ...InputResource) ResourceReports 接收GW VS 资源的报告，最后生成一个树形的结构，任何一层级发生异常，可以快速定位
+			>>>> validateGateways(gateways GatewayList, virtualServices VirtualServiceList, reports ResourceReports)  校验同一NG中的 GW中的 Listener 是否 端口重叠
+			>>>> 遍历 同一NG 的GWS listeners
+			>>>> GenerateListener(ctx context.Context, ngName string, snap ApiSnapshot, filteredGateways Gateway, reports ResourceReports) []Listener 将每个 servers 组装成了 Proxy listener对象
+				>>>>> 遍历 gw，继续遍历 gwListener
+				>>>>> validateServers(ctx Context, servers []GWServer, listener Listener, reports []ResourceReporters) 校验一个listener下 server的 sni 是否重叠，校验 没有 ssl 配置的 server 是否数量超过1（server 间通过 sni 进行匹配的）
+				>>>>> GenerateServer(ctx Context, snap ApiSnapshot, server []GWServer, report []ResourceReporters) ([]Server, error)  遍历GWServer，每个 GWServer生成一个 server 对象
+					>>>>>> GetVirtualServicesForServer(server GWServer, virtualServices VirtualServiceList) (VirtualServiceList, error) 获取这个 Server 的 VS 对象
+					>>>>>> validateVirtualServiceDomains(server GWServer, virtualServices VirtualServiceList, reports reporter.ResourceReports)  因为envoy需要通过domain进行 VH匹配，把 domain 重复的 VS 取出来，将 domain 和 VS 都取出来，报告异常
+					>>>>>> desiredServerForHttp(virtualServices VirtualServiceList, reports ResourceReports) []VirtualHost 把同一server下的 VS组装为 VH 并作为列表 组装为一个Proxy server 对象
+						>>>>>>> virtualServiceToVirtualHost(vs VirtualService, reports ResourceReports) (VirtualHost, error)  通过 VS 组装 VH 对象（放弃路由表组件）（是否需要路由短路提醒功能）
+							>>>>>>>> validateRoute(vs VirtualService, reports ResourceReporters)  mytodo 验证 Route 的匹配是否合法（包括正则表达式语法的验证等，这里不进行重叠的验证，因为Route完全可以重叠，重叠后只会按照先来后到执行，第二次就不会走到这个路由的）
+							>>>>>>>> generateRoute(vs VirtualService, reports ResourceReporters) ([]Route, error)  根据VS生成 RouteList 对象
+								getVSRoute(vs VirtualService, reports ResourceReporters)  RouteList 获取 VS 中的 Route 对象
+								遍历 VSRoute 组装 Route
+								mytodo RouteMapConfig 怎么获取
+							>>>>>>>> getVSFilter(vs VirtualService) FilterMap  取 map，获取插件实例protobuf.any 的配置（调用插件的函数生成的）map<string, google.protobuf.Any> typed_per_filter_config
+							>>>>>>>> VH{} 根据 VS 配置 filterMap  Routes 组装 VH 对象 
+						>>>>>>> VHList{} 根据 GWServer option 和 VH 组装 Proxy server 对象
+					>>>>>> Server{}	 组装为Server，进一步组装为 ServerList
+				>>>>> Listener{}  根据ListenerOptions servers 地址端口组装为 Proxy listener 对象 进一步组装为 ListenerList
+			>>>> Proxy{}  由Proxy Listeners 组装为 Proxy
+
+
+
+> emacs lisp 学习
+	>> interactive
+		>>> https://www.jianshu.com/p/65b271c1dabf
+		>>> 注意interactive 后面的参数 s r 等有不同含义
+------------------------------------------------------------
+(defun hello2 (name)
+	"NAME Search."
+	(interactive "sinput name: ")
+	(message "hello! %s" name))
+
+(defun hello3 (name)
+  "Say NAME hello to a person."
+  (interactive "sPlease input person name: ")
+  (message "Hellox, %s!" name))
+
+------------------------------------------------------------
+	>> defvar setq 区别 defvar setq 都用于变量赋值， defvar 有两个特性，defvar 的变量如果有值，将什么都不做，defvar 允许加入一个附加的 doc
