@@ -1,0 +1,53 @@
+> NG floatip 改变，GW 的 address 会改变，重新生成 Proxy
+
+> webhook request response
+
+> dam translatorSyncer Sync(ctx context.Context, snap *v1.ApiSnapshot) error
+	>> 链接
+		https://www.mubucm.com/doc/4RCH5x-v8YS
+	>> 概述
+		将监听的资源生成xDS对象
+	>> 结构
+		>>> syncEnvoy(ctx context.Context, snap *v1.ApiSnapshot, allReports reporter.ResourceReports) error  proxy生成 xDSSnapshot（这里将 snap 中的Proxy拆出来，ctx和snap作为param传进去）
+			>>>> translatorFactory Translate(params Params, proxy Proxy) (Snapshot, ResouceReports, ProxyReport, error) 生成一个 translatorInstance 来获取 proxy -> xDSSnapshot
+				>>>>> translatorInstance Translate(params Params, proxy Proxy) (envoycache.Snapshot, reporter.ResourceReports, ProxyReport, error) 根据 proxy 生成 xDSSnapshot
+					>>>>>> createUpstreamToEndpointsMap(upstreams []Upstream, endpoints []Endpoint) map[string][]Endpoint  通过遍历upstream endpoint ，同一upstream 下的 eDS作为eDSList作为值保存，map upstreamName: eDSList
+					>>>>>> computeClusters(params Params, report ResourceReports, upstreamRefKeyToEndpoints map[string][]Endpoint, proxy Proxy) []*Cluster 遍历ClusterList，cluster->envoyCluster
+						>>>>>>> validateUpstreamLambdaFunctions(proxy Proxy, upstreams UpstreamList, upstreamGroups UpstreamGroupList, reports ResourceReports)
+							>>>>>>>> validateRouteDestinationForValidLambdas(proxy Proxy, route Route, upstreamGroup UpstreamGroupList, reports ResourceReports, upstreamLambdas map[string]map[string]bool)  
+								RouteAction_Single Destination 添加到 DestList
+								RouteAction_Multi DestinationList 遍历后 添加到 DestList
+								RouteAction_UpstreamGroup 校验 Route 的 UpstreamGroupRef是否真实存在，再将 upstreamGroup 遍历后 添加到 DestList
+								UpstreamToClusterName(upstream *core.ResourceRef) string  拼接upstream Name和 Namespace
+						>>>>>>> computeCluster(params Params, upstream Upstream, upstreamRefKeyToEndpoints Endpoint, reports ResourceReports) Cluster  组装 HC OD 熔断 LB ConnectTimeout Http2Opt SslConfig TransportSocket EDS 为 Cluster；并进行Cluster 的校验
+							>>>>>>>> initializeCluster(upstream Upstream, upstreamRefkeytoendpoints Endpoint, report ResourceReports, secrets SecretList) Cluster 组装 HC OD 熔断 LB ConnectTimeout Http2Opt SslConfig TransportSocket EDS 为 Cluster
+								>>>>>>>>> createHealthCheckConfig(upstream Upstream, secrets SecretList) (HealthCheck, error)  校验 hc HealthyThreshold UnhealthyThreshold HealthChecker 没有则报错；HC->envoyHC 转换
+									ToEnvoyHealthCheck(check HealthCheck, secrets SecretList) (HealthCheck, error) HealthCheck 转换为 envoyHC
+								>>>>>>>>> createOutlierDetectionConfig(upstream Upstream) (OutlierDetection, error)  校验OutlierDetection.HealthChecker.Interval 参数；OD->envoyOD转换
+								>>>>>>>>> applyDefaultsToUpstreamSslConfig(sslConfig *v1.UpstreamSslConfig, options *v1.UpstreamOptions)  设置默认的UpstreamSslConfig
+								>>>>>>>>> ResolveUpstreamSslConfig(secrets SecretList, uc UpstreamSslConfig) (UpstreamTlsContext, error)  组装commonTlsContext和sni为 upstreamTlsContext
+									ResolveCommonSslConfig(cs CertSource, secrets v1.SecretList, mustHaveCert bool) (*envoyauth.CommonTlsContext, error) 组装 commonTlsContext
+								>>>>>>>>> SetEdsOnCluster(out Cluster, settings Settings) 将 EDS 的配置组装到 Cluster
+							>>>>>>>> validateCluster(c Cluster) error  校验 Cluster 的类型是否为 STATIC STRICT_DNS LOGICAL_DNS，校验 Cluster 是否包含 Endpoint
+					>>>>>> computeClusterEndpoints(params Params, upstreamRefKeyToEndpoints map[string][]*Endpoint, reports ResourceReports) ClusterLoadAssignment 将endpoint组装cDS 的 LoadAssignments
+						>>>>>>> loadAssignmentForUpstream(upstream Upstream, clusterEndpoints Endpoint) ClusterLoadAssignment  一个upstream下的endpointList进行遍历 组装Endpoint 的HC LB Hostname， 组装LocalityLbEndpoints 作为cDS的配置
+					>>>>>> computeListenerResources(params Params, proxy Proxy, listener Listener, listenerReport ListenerReport) listenerResouces  通过 listener 和 routeConfig 组装 listenerResources
+						>>>>>>> computeRouteConfig(params Params, proxy Proxy, listener Listener, routeCfgName string, listenerReport ListenerReport) RouteConfiguration 校验listener中的ssl，通过VHList 组装为 RouteConfig
+							>>>>>>>> computeVirtualHosts(params Params, proxy Proxy, listener Listener, httpListenerReport HttpListenerReport) VirtualHost 检验 VH；组装 VH 为 VHList
+								ValidateVirtualHostDomains(virtualHosts []VirtualHost, httpListenerReport HttpListenerReport) 检验VH的domain 重复则异常
+								computeVirtualHost(params VirtualHostParams, virtualHost VirtualHost, requireTls bool, bhostReport VirtualHostReport) VirtualHost 组装 VH 的 name domains routes requireTls
+							>>>>>>>> validateListenerSslConfig(params Params, listener Listener) error 检验是否能正常组装为downstreamTlsContext ，遍历 listener 组装 commonTlsContext sni 为 downstreamTlsConstext，如果都能顺利组装则不报错
+								>>>>>>>>> ResolveDownstreamSslConfig(secrets v1.SecretList, dc *v1.SslConfig) (*envoyauth.DownstreamTlsContext, error) 组装 commonTlsContext sni 为 downstreamTlsConstext
+									ResolveCommonSslConfig(cs CertSource, secrets v1.SecretList, mustHaveCert bool) (*envoyauth.CommonTlsContext, error) 组装 commonTlsContext
+						>>>>>>> computeListener(params Params, proxy Proxy, listener Listener, listenerReport ListenerReport) Listener 通过 address 组装 envoylistener
+						  >>>>>>>> computeListenerFilters(params Params, listener Listener, listenerReport ListenerReport) []Filter  listener 组装一个 filterList
+								>>>>>>>>> computeHTTPFilters()  组装HCM并  HCM 组成 filterList，
+								>>>>>>>>> filterList    filterList filter_chain_match=SniList 组成 FC
+								>>>>>>>>> FC name address 等组装为 listener
+							>>>>>>>> computeFilterChainsFromSslConfig(snap ApiSnapshot, listener Listener, listenerReport ListenerReport) FilterChain 将 Proxy listener下的 server 列出，根据sni，组成一个 SecureFCList 返回
+							>>>>>>>> FCList 和 listener 地址等参数 组装为 一个 envoy listener							
+					>>>>>> 将 listenerResource 中的 RouteConfig listener 加入到 routeConfigList listenerList
+					>>>>>> GeneratedResources(params Params, inClusters Cluster, inEndpoint ClusterLoadAssignment, inRouteConfigurations RouteConfiguration, inListeners Listener) ([]Cluster, []ClusterLoadAssignment, []RouteConfiguration, Listener, error)  使用插件（Gloo里的插件和我们的不同）再次对四种资源进行一些处理
+				>>>>>> generateXDSSnapshot(cluster []Cluster, endpoints []ClusterLoadAssignment, routeConfigs []RouteConfiguration, listeners []Listener) Snapshot 将四种资源的版本（通过hash的值）和 资源组装为 envoySnapshot
+					NewSnapshotFromResources(endpoints Resources, clusters Resources, routes Resource, listeners Resources) Snapshot 根据四种资源组装 envoySnapshot
+						downgradeCacheResources(resources Resources) Resources 兼容 envoy v2资源

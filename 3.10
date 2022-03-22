@@ -1,0 +1,506 @@
+> 转换设计文档评审
+	>> 关键
+		最后生成的xDSSnapshot 和envoy 所需要的 xDS 协议字段能不能匹配
+	>> 前提
+		我们认为gloo 最后生成的 xDSSnapshot 和 envoy xDS 字段是匹配的（就算不匹配也是极少部分）。说明如果我们大量参考gloo 生成 xDSSnapshot 的代码是可行的
+	>> 两方面
+		>>> GW(VS)生成proxy 的流程
+			不会变
+		>>> 配置项的细节
+			可能会有变化
+			
+		为了避免某些内容讲两遍，我们只对现在 DAM 的对象转换进行说明。在具体配置项通过两者的对比进行说明。
+		gateway层代码，snapshot 的机制，怎么使用snapshot 以及转换的内容(对象的组装)
+
+> DAM 校验转换总体流程
+	>> web 层
+		web 组织 apiserver 提供的接口请求（管理面定义的CRD(GW VS UPSTREAM UpstreamGroup ...)注册到 apiserver 生成api）
+	>> apiserver 层
+		apiserver 接收到web 层 请求后，做了 schema 校验（schema 校验由 注册crd 的yaml 文件指定(https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/)）, 前面 gateway 项目向 apiserver 注册了 ValidatingWebhookConfig 作为 admission plugin，并在 yaml 文件中注册了对某些CRD 的操作进行监听，所以 apiserver 组织了 AdmissionReview请求 ，期望得到一个 AdmissionReview 响应获取webhook处理的结果（AdmissionReview 请求内容，如何封装的，dryrun字段 https://kubernetes.io/zh/docs/reference/access-authn-authz/extensible-admission-controllers/）
+************************************************************
+ValidatingWebhookConfig.yaml
+------------------------------------------------------------
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: gloo-gateway-validation-webhook-gloo-system
+webhooks:
+- name: gateway.gloo-system.svc  # must be a domain with at least three segments separated by dots
+  clientConfig:
+    service:
+      name: gateway
+      namespace: gloo-system
+      path: "/validation"
+    caBundle: "" # update manually or use certgen job or cert-manager's ca-injector
+  rules:
+  - operations: [ "CREATE", "UPDATE", "DELETE" ]
+    apiGroups: ["gateway.solo.io"]
+    apiVersions: ["v1"]
+    resources: ["*"]
+  - operations: [ "CREATE", "UPDATE", "DELETE" ]
+    apiGroups: ["gloo.solo.io"]
+    apiVersions: ["v1"]
+    resources: ["upstreams"]
+  - operations: [ "DELETE" ]
+    apiGroups: ["gloo.solo.io"]
+    apiVersions: ["v1"]
+    resources: ["secrets"]
+  sideEffects: None
+  matchPolicy: Exact
+  admissionReviewVersions:
+    - v1beta1 # v1beta1 still live in 1.22 https://github.com/kubernetes/api/blob/release-1.22/admission/v1beta1/types.go#L33
+  failurePolicy: Ignore
+------------------------------------------------------------
+************************************************************
+	>> DAM webhook 层
+		>>> webhook 接收到 Apiserver 组织的 Admissionreview 请求，并对监视的 GW VS 等对象的 增删改 进行相应的处理，处理的结果组织为 AdmissionReview 响应进行返回（如何组织一个 admissionreview 响应  https://muaazsaleem.com/blog/parsing-admission-requests-in-a-validating-admission-webhook）
+	>> DAM gateway controller 层
+		>>> gateway 进行了 GW VS 等对象的监听，当相应的资源发生更新时，将通过 channel 触发 apisnapshot 的同步机制，其中包含 translator validator 的 同步
+			>>>> translator sync 负责将 所有监听的对象所打包成的新的 snapshot -> ProxyList 对象
+			>>>> validator sync 如果 transltor sync 成功，会将这个 snapshot 保存起来，作为 lastsnapshot 提供给 webhook 层使用
+	>> dam controller 层
+		>>> dam controller 监听了 Proxy Upstream Endpoint 资源的变化，同上的 apisnapshot 机制，会将 snapshot(Proxy upstream endpoint)  -> xDSsnapshot 对象
+
+> 转换设计文档
+  >> 概述
+    dam项目目前由两个子项目组成，gateway子项目和 dam 子项目，(为了区分 gateway子项目和项目中的 gateway对象，将gateway对象称为GW 对象)。gateway 负责 GW VS 对象的管理，dam 负责upstream endpoint 对象的管理。gateway 将 GW VS Route 对象转为 Proxy对象，dam 将 Proxy upstream Endpoint 对象转换为 xDSSnapshot 对象。
+  >> 思路
+    dam 基于 gloo 1.7 版本进行二次开发而来，对比 dam 子项目 和 gloo 子项目，upstream endpoint 对象没有发生变化，而gateway 子项目中 GW VS 对象发生了很大的变化（proxy对象没有发生变化，因为proxy对应的是envoy配置xDS协议有关）。通过分析可以认识到，dam和 gloo层的对象转换没有发生任何变化；然而gateway 这一层中转换为 Proxy 时，发生了比较大的变化，虽然如此，在这一层的转换过程中，应该参照之前的流程实现转换逻辑，做到大范围的代码复用，快速开发以实现需求，这是dam 转换需求的实现思路。
+  >> 准备工作
+    >>> gloo GW(VS) -> PROXY 具体转换流程
+      gloo Proxy 生成过程：https://www.mubucm.com/doc/2sFXlYerCIC
+      
+      -- ** 将同一proxyName的GW组成一个proxy:GWList a的map
+      遍历 map，拿到同一个ProxyName下的GWList 
+      根据namespace过滤 GWList
+      ** 验证 gateway 中 http 类型 gateway 中的 VS 是否真实存在，验证是否有重复地址的 gateway，异常则丢弃
+      ** 遍历GWList，获取GW，然后遍历 snap 里的 VSList，如果GW 里存在就添加到 VSForGWList
+      ** 验证 VSForGWList VS domain，如果重复，则报异常
+      如果 VS 的 oneWayTls没配，加上全局默认配置的 oneWayTls      
+      ** 通过VS组装 VH 对象，把 VHList 和 sslConfig 组装到 listener 中
+      ListenerList 组装成 Proxy
+      
+    >>> gloo Proxy -> xDSsnapshot
+      gloo xDSsnapshot 生成过程 https://www.mubucm.com/doc/1cTTAfMIFWS
+
+  >> 流程
+    >>> gateway 生成 proxy 对象
+      https://www.mubucm.com/doc/43879ZUV63S
+    >>> dam  生成xDSsnapshot 对象
+      https://www.mubucm.com/doc/4RCH5x-v8YS
+			>>>> 为什么不先从 VS(从小到大)开始转换
+			>>>> 为什么不干脆一个函数做验证，一个函数做转换，一个函数做组装
+				这样会做很多次重复的对象解开和遍历
+
+> 需要的资料
+	>> DAM 转换设计文档
+	>> DAM GLOO proto对比文件      -> gateway.nroff
+	>> DAM 项目代码
+	>> GATEWAY 生成 Proxy 流程图
+	>> GATEWAY Proxy 落盘流程图
+	>> DAM proxy->xDS 流程图
+	>> DAM envoy连接图
+	>> DAM gateway 对象层级图
+
+
+************************************************************
+DAM envoy连接图
+------------------------------------------------------------
+┌───────────────────────────────┐
+│            dam                │
+│                               │
+│         xDS snapshot          │
+│                               │
+│   proxy1    proxy2    proxy3  │
+│   ┌────┐    ┌────┐    ┌────┐  │
+│   │LDS │    │LDS │    │LDS │  │
+│   │RDS │    │RDS │    │RDS │  │
+│   │CDS │    │CDS │    │CDS │  │
+│   │EDS │    │EDS │    │EDS │  │
+│   │... │    │... │    │... │  │
+│   └────┘    └────┘    └────┘  │
+└───────────────────────────────┘
+     ▲        ▲          ▲
+     │        │          │
+ ┌───┴────┐ ┌─┴──────┐ ┌─┴──────┐
+ │ envoy1 │ │ envoy2 │ │ enovy3 │
+ └────────┘ └────────┘ └────────┘
+------------------------------------------------------------
+
+DAM proxy->xDS 流程图
+------------------------------------------------------------
+                       gloo
+
+
+    1     ┌────────────────────┐
+────────► │ proxyNamespaceChan │
+          └────────┬───────────┘
+                   │2
+                   ▼
+              ┌───────────┬───────────┐
+              │ proxyChan │           │
+              │           │proxy      │
+              │    3      │           │
+              │  ┌────────┤snapshot   │
+              │  │hasher  │           │
+              └──┴─┬──────┴───────────┘
+                   │4
+                   ▼
+          ┌───────────────┬────────────┐
+          │   ApiChan     │            │
+          │               │            │
+          │               │            │
+          │       5       │            │
+          │               │ApiSnapshot │
+          │               │            │
+          │  ┌────────────┤            │
+          │  │   hasher   │            │
+          │  └────────────┤            │
+          │               │            │
+          │  ┌────────────┤            │
+          │  │   emiter   │            │
+          └──┴─────┬──────┴────────────┘
+                   │
+                   │6
+                   ▼
+            ┌───────────────┐
+            │    envoy      │
+            └───────────────┘
+
+   1 proxy update
+
+   2 proxyNamespaceChan send updated proxy to proxyChan
+
+   3 new proxy compare with Old proxySnapshot by hasher to consider
+     if sending data to ApiChan or droping away
+
+   4 proxyChan send data to ApiChan
+
+   5 new ApiSnapshot compare with Old ApiSnapshot by hasher
+     to consider if sending data to envoy by emiter
+
+	 6 send to envoy
+------------------------------------------------------------
+
+DAM 生成 proxy 流程图
+------------------------------------------------------------
+    ┌───────────────────────┐   ┌───────────┐
+    │                       │   │           │
+    │        gateway        │   │   gloo    │
+    │                       │   │           │
+    │                       │   │           │
+  1 │   ┌───┐ 3    ┌─────┐  │   │   ┌───┐   │
+ ───┼─► │GWS├───►  │     │  │ 5 │   │   │   │
+    │   └───┘      │     ├──┼───┼─► │   │   │
+    │              │proxy│  │   │   │xDS│   │
+  2 │   ┌───┐ 4    │     │◄─┼───┼── │   │   │
+────┼─► │VSS├───►  │     │  │ 6 │   │   │   │
+    │   └───┘      └──┬──┘  │   │   └───┘   │
+    │                 │     │   │           │
+    └─────────────────┼─────┘   └───────────┘
+                      │
+                      ▼
+                  ┌───────────────┐
+                  │               │
+   1 post GW      └───────────────┘
+
+   2 post VS
+
+   3 verify and translate GW options
+
+   4 verify and translate VS options
+
+   5 call if generate xDS (true of false)
+
+   6 return true or false
+------------------------------------------------------------
+
+DAM gateway 对象层级
+------------------------------------------------------------
+                                                                  ┌──────────────┐
+                                                           ┌──────┤virtualService│
+                                                           │      └──────────────┘
+                                                ┌──────────┴─┐
+                                         ┌──────┤HttpServer  │
+                                         │      └──────────┬─┤    ┌──────────────┐
+                                         │                 └─┴────┤virtualService│
+                                         │                        └──────────────┘
+                                ┌────────┴─┐    ┌────────────┐
+                        ┌───────┤listener  ├────┤HTTPServer  │
+                        │       └────────┬─┘    └────────────┘
+                        │                │
+                        │                │
+                        │                │      ┌────────────┐
+                  ┌─────┴─┐              └──────┤TCPServer   │
+         ┌────────┤gateway│                     └────────────┘
+         │        └─────┬─┘
+         │              │
+         │              │
+         │              │
+         │              │
+         │              │       ┌──────────┐
+         │              └───────┤listener  │
+         │                      └──────────┘
+         │
+┌────────┴──┐
+│node group │
+└────────┬──┘
+         │
+         │
+         │
+         │
+         │
+         │
+         │        ...
+         │       ┌───────┐
+         └───────┤gateway│
+                 └───────┘
+------------------------------------------------------------
+************************************************************
+
+> DAM gateway 层的转换主要由两个函数来承担，generateddesiredproxies, ReconcileProxies
+	generatedDesiredProxies  负责转换
+	ReconcileProxies  负责落盘
+
+> generatedDesiredProxies(ctx context.Context, snap *v1.ApiSnapshot) reconciler.GeneratedProxies
+	>> 概述
+		gateway 新的转换过程： 将 ng_name 相同的 GW 合并组装成大的 Listeners 保存到 Proxy 中，最终生成 map ng_name:proxy
+	>> 返回值 reconciler.GeneratedProxies
+		>>> type GeneratedProxies map[*gloov1.Proxy]reporter.ResourceReports  map, Proxy:ResourceReports
+			>>>> Proxy {Listeners}
+			>>>> ResourceReports map[resources.InputResource]Report  map, InputResource:Report
+				InputResource {Resource} ???  输入的资源
+				Report {Warning []string, Errors error}  状态
+	>> 函数体
+		>>> GatewaysByNGName(gateways GatewayList) map[string]GatewayList 返回map，把 gateway 中 ng_name 拿出来，作为 ng_name: GWS 中 的键
+			e.g. GW1:[NG1, NG2] GW2:[NG1] GW3:[NG2] -> NG1:[GW1, GW2] NG2:[GW1, GW3]
+		>>> Translate(ctx context.Context, NGName, namespace string, snap *v1.ApiSnapshot, gatewaysByNG v1.GatewayList) (Proxy, ResourceReports)  将 snap 和 gatewaysByNG 组装成了 listeners 由 Proxy 保存
+			>>>> Accept(res ...InputResource) ResourceReports 接收GW VS 资源的报告，最后生成一个树形的结构，任何一层级发生异常，可以快速定位
+			>>>> validateGateways(gateways GatewayList, virtualServices VirtualServiceList, reports ResourceReports)  校验同一NG中的 GW中的 Listener 是否 端口重叠
+			>>>> 遍历 同一NG 的GWS listeners
+			>>>> GenerateListener(ctx context.Context, NGName string, snap *v1.ApiSnapshot, listener Listener, reports ResourceReports) []Listener 将每个 servers 组装成了 Proxy listener对象
+				>>>>> getGWServersForListener(ctx context.Context, listener Listener) []GWServer  获取一个 listener 下所有 server
+				>>>>> validateServers(ctx Context, servers []GWServer, listener Listener, reports []ResourceReporters) 校验一个listener下 server的 sni 是否重叠，校验 没有 ssl 配置的 server 是否数量超过1（server 间通过 sni 进行匹配的）
+				>>>>> GenerateServer(ctx Context, snap ApiSnapshot, server GWServer, report []ResourceReporters) Server  遍历了GWServer，每个 GWServer生成一个 server 对象
+					>>>>>> getVirtualServicesForServer(server GWServer, virtualServices VirtualServiceList) v1.VirtualServiceList 获取这个 Server 的 VS 对象
+					>>>>>> validateVirtualServiceDomains(server GWServer, virtualServices v1.VirtualServiceList, reports reporter.ResourceReports)  因为envoy需要通过domain进行 VH匹配，把 domain 重复的 VS 取出来，将 domain 和 VS 都取出来，报告异常
+					>>>>>> desiredServerForHttp(virtualServices v1.VirtualServiceList, reports reporter.ResourceReports) Server 把同一server下的 VS组装为 VH 并作为列表 组装为一个
+Proxy server 对象
+						>>>>>>> virtualServiceToVirtualHost(vs VirtualService, reports reporter.ResourceReports) (*gloov1.VirtualHost, error)  通过 VS 组装 VH 对象（放弃路由表组件）（是否需要路由短路提醒功能）
+							>>>>>>>> validateRoute(vs VirtualService, reports ResourceReporters)  验证 Route 的匹配是否合法（包括正则表达式语法的验证等，这里不进行重叠的验证，因为Route完全可以重叠，重叠后只会按照先来后到执行，第二次就不会走到这个路由的，唯一需要担心的是路由短路现象，比较复杂）
+							>>>>>>>> generateRoute(vs VirtualService, reports ResourceReporters) (RouteList, error)  根据VS生成 RouteList 对象
+								getVSRoute(vs VirtualService, reports ResourceReporters)  RouteList 获取 VS 中的 Route 对象
+								validateAndMergeRoute(routes RouteList) (RouteList,  error) 校验是否由route可以合并并且执行合并操作（匹配的合并和头部维护的合并）
+							>>>>>>>> getVSFilter(vs VirtualService) FilterMap  取 map，获取插件实例protobuf.any 的配置（调用插件的函数生成的）map<string, google.protobuf.Any> typed_per_filter_config
+							>>>>>>>> VH{} 根据 VS 配置 filterMap  Routes 组装 VH 对象 
+						>>>>>>> Server{} 根据 GWServer option 和 VH 组装 Proxy server 对象
+				>>>>> desiredListenerForHttp(listener Listener, servers Servers, reports reporter.ResourceReports) *gloov1.Listener  根据ListenerOptions server 地址端口组装为 Proxy listener 对象
+			>>>> Proxy{}  由Proxy Listeners 组装为 Proxy
+
+
+> ReconcileProxies(ctx context.Context, proxiesToWrite GeneratedProxies, writeNamespace string, labels map[string]string) error
+	>> 链接
+		https://www.mubucm.com/doc/6uwjpUOFgqS
+	>> 概述
+		ReconcileProxies Proxies 把生成的 proxies 写入到 PROXY CRD 里触发 DAM 子项目的 proxy->xDS
+		最终调用solo-kit/pkg/api/v1/reconcile的Reconcile方法
+	>> 返回值
+		是否有异常
+	>> 函数体
+		>>> addProxyValidationResults(ctx context.Context, proxiesToWrite GeneratedProxies) error  检查每个 Proxy 的 reporter ，如果 reporter 中有 异常 警告，有严格模式，决定是否允许落盘，这个报告如何给到 web 层？
+		>>> transitionFunc(original, desired Proxy) (bool error) 将 Proxy 进行hash 比较，如果 hash 不同，则进行更新
+		>>> Reconcile(namespace string, desiredResources ProxyList, transition TransitionProxyFunc) error 使用进行落盘操作
+			...
+			>>>> client.Write(desired, clients.WriteOpts{Ctx: ctx, OverwriteExisting: true})
+		
+
+------------------------------------------------------------
+;; avy 配置
+(require 'avy)
+(avy-linum-mode t)
+(global-set-key (kbd "M-g f") 'avy-goto-line)
+(global-set-key (kbd "C-:") 'avy-goto-char)
+------------------------------------------------------------
+
+
+> gateway 对象字段的转化分成三层
+	>> GW GWlistener ->  Proxy listener
+		GW GWListener 转化为 Proxy listener 对象
+	>> GWServer -> Server
+		GWServer 转化为 Proxy中的 Server 对象
+	>> VS Route -> VH Route
+		GW 中的 VS Route 转化为 Proxy 中的 VH Route 对象
+
+gateway 层对象
+************************************************************
+GW GWlistener ->  Proxy listener
+------------------------------------------------------------
+message Gateway {
+    option (core.solo.io.resource).short_name = "gw";
+    option (core.solo.io.resource).plural_name = "gateways";  
+    core.solo.io.Status status = 1 [(extproto.skip_hashing) = true];
+    core.solo.io.Metadata metadata = 3;
+
+    repeated GwListener listeners = 4;							// 抽象出listener 
+    repeated string ng_names = 5;										// ng_name 和 proxy_name 作用相同
+}
+
+message GwListener {
+    string bind_address = 2;																							// -> Listener bind_address
+    uint32 bind_port = 3;																									// -> listener bind_port
+    repeated GwServer  srvs=4;																						// -> servers 
+    gloo.solo.io.ListenerOptions options = 8;															// -> listener options
+    google.protobuf.Struct metadata = 9 [(extproto.skip_hashing) = true];
+}
+
+// ListenerOptions 在这一层并未做实际的转化，仅作注释
+message ListenerOptions {
+    als.options.gloo.solo.io.AccessLoggingService access_logging_service = 1; // 日志服务对象
+    google.protobuf.UInt32Value per_connection_buffer_limit_bytes = 3;				// 每个连接buffer大小
+    repeated .solo.io.envoy.api.v2.core.SocketOption socket_options = 4;			// socket_option 暂时没做
+}
+------------------------------------------------------------
+
+GWServer -> Server
+------------------------------------------------------------
+message GwServer {   
+    gloo.solo.io.TlsServer ssl_configurations =1;													// -> server ssl_configurations
+    oneof server_type {   // -> server server_type
+        GwHttpServer  http_server= 3;
+        GwTcpServer tcp_listener = 4;
+    }
+}
+
+message GwTcpServer {
+}
+
+message GwHttpServer {
+    gloo.solo.io.HttpServerOptions options = 1;														// -> server options
+    repeated core.solo.io.ResourceRef virtual_services = 2;								// VS refs -> VSs -> server VHs
+}
+
+// HttpServerOptions 在这一层并未做实际的转化，仅作注释
+message HttpServerOptions {
+    grpc_web.options.gloo.solo.io.GrpcWeb grpc_web = 1;    
+    hcm.options.gloo.solo.io.HttpConnectionManagerSettings http_connection_manager_settings = 2;  // HCM 设置
+    healthcheck.options.gloo.solo.io.HealthCheck health_check = 4;																// 健康检查选项
+    google.protobuf.BoolValue leftmost_xff_address = 16;																					// 将该值设置为true将从x-forwarded-for报头获取最左边的IP地址，并将其设置为下游地址。值得注意的是，x-forward -for头可能会被客户端篡改，因此如果要使用这个选项，任何前面的代理负载平衡器都应该对其进行清理
+    google.protobuf.BoolValue merge_slashes =17;																									// 合并 斜杠，xDS HCM 里面的 配置
+    google.protobuf.BoolValue skip_xff_append =18;																								// 这个是 http_connection_manager_settings 里面的
+}
+------------------------------------------------------------
+
+VS Route -> VH Route
+------------------------------------------------------------
+message VirtualService {
+    option (core.solo.io.resource).short_name = "vs";
+    option (core.solo.io.resource).plural_name = "virtual_services";
+ 
+    repeated string domains = 1;																																	// -> VH domains 
+    repeated Route routes = 2;																																		// 组装成 VH routes 
+    gloo.solo.io.VirtualHostOptions options = 3;																									// -> VH options
+    map<string, string> typed_per_filter_config =4;																								// VS typed_per_filter_config pluginInstance: json_conf , instance.handle(json_conf Json) (VSAny RouteAny) -> instance:vsAny
+		          // new map instance: vsAny，调用插件生成的VSAny 和插件实例id 组装成 VH typed_per_filter_config
+    string display_name = 5 [(extproto.skip_hashing) = true];																			// 展示名，不填到 VH
+    core.solo.io.Status status = 6 [(extproto.skip_hashing) = true];
+    core.solo.io.Metadata metadata = 7;
+}
+
+message Route {
+    repeated matchers.core.gloo.solo.io.Matcher matchers = 1;																			// -> Route matchers
+    oneof action {																																								// -> Route action
+        gloo.solo.io.RouteAction route_action = 2;
+				gloo.solo.io.RedirectAction redirect_action = 3;
+        gloo.solo.io.DirectResponseAction direct_response_action = 4;
+    }
+  	string uuid = 5;																																							// -> Route uuid
+    string name = 6;																																							// -> Route name
+    headers.options.gloo.solo.io.HeaderManipulation header_manipulation  = 7;											// -> Route header_manipulation
+}
+------------------------------------------------------------
+************************************************************
+
+
+dam 层对象
+************************************************************
+GW GWlistener -> Proxy listener
+------------------------------------------------------------
+message Proxy {
+    option (core.solo.io.resource).short_name = "px";
+    option (core.solo.io.resource).plural_name = "proxies";
+
+    repeated Listener listeners = 1;  // 把里面 listener 对象 -> xDS listener对象即可
+    core.solo.io.Status status = 2 [(extproto.skip_hashing) = true]; 
+    core.solo.io.Metadata metadata = 3;
+}
+
+message Listener {
+    string name = 1;									// GW ng_name + bind_port = name
+    string bind_address = 2;					// <- GWListener bind_address
+    uint32 bind_port = 3;							// <- GWListener bind_port
+    repeated Server  servers=4;				// GWServer 转化而来
+    ListenerOptions options = 8;			// GWListener options
+    google.protobuf.Struct metadata = 9 [(extproto.skip_hashing) = true];
+}
+------------------------------------------------------------
+
+GWServer -> Server
+------------------------------------------------------------
+message Server {
+	TlsServer ssl_configurations = 1;  // <- GWServer ssl_configurations
+	oneof server_type {  // <- GWServer server_type
+          HttpServer  http_server= 3;  
+          TcpServer tcp_listener = 4;
+    }
+}
+
+message TcpServer {
+}
+
+message HttpServer {
+    repeated VirtualHost virtual_hosts = 1; // <- VSs <- VS refs
+    HttpServerOptions options = 2; // <- GWServer options
+}
+------------------------------------------------------------
+
+VS Route -> VH Route
+------------------------------------------------------------
+message VirtualHost {
+    string name = 1;
+
+    repeated string domains = 2; // <- VS domains
+    repeated Route routes = 3; //  组装routes
+    VirtualHostOptions options = 4;  // <- VS options
+    map<string, google.protobuf.Any> typed_per_filter_config = 5; // instance:vsAny <- VS typed_per_filter_config pluginInstance: json_conf , instance.handle(json_conf Json) (VSAny RouteAny)
+    google.protobuf.Struct metadata = 6 [(extproto.skip_hashing) = true];
+}
+
+message Route {
+    repeated matchers.core.gloo.solo.io.Matcher matchers = 1; <- Route matchers
+    oneof action {  // <- Route action
+        RouteAction route_action = 2;
+        RedirectAction redirect_action = 3;
+        DirectResponseAction direct_response_action = 4;
+    }
+    google.protobuf.Struct metadata = 6 [(extproto.skip_hashing) = true];
+    string name = 7; // <- Route name
+	  string uuid = 8; // <- Route uuid
+    map<string, google.protobuf.Any> typed_per_filter_config = 9;  // VS typedperfilterconfig 中获取到 map instance:routeAny  组装为 这里的map
+  	headers.options.gloo.solo.io.HeaderManipulation header_manipulation  = 10; // <- Route header_manipulation
+}
+------------------------------------------------------------
+************************************************************
+
+
+stat_prefix
+use_proxy_proto
+
+> TODO
+	>> pb 文件 定下来
+	>> solo.io 改一下
+	>> gloo -> dam	
+	>> DAM 项目从gloo 提取出来
+
+
+
+> 大家注意，我们现在组织名项目名为  ouryun/dam 

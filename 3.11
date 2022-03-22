@@ -1,0 +1,46 @@
+apiVersion: gloo.solo.io/v1
+kind: Settings
+metadata:
+  labels:
+    app: gloo
+    gloo: settings
+  name: default
+  namespace: default
+spec:
+  gloo:
+    xdsBindAddr: "0.0.0.0:9977"
+    restXdsBindAddr: "0.0.0.0:9976"
+    enableRestEds: true
+  refreshRate: 60s
+  gateway:
+    readGatewaysFromAllNamespaces: false
+    validation:
+      proxyValidationServerAddr: gloo:9988
+      alwaysAccept: true
+      allowWarnings: true
+      disableTransformationValidation: false
+      validationServerGrpcMaxSizeBytes: 4e+06
+
+
+
+dam:
+	xdsBindaddr
+	validation_bind_addr
+	restxdsbindaddr
+	enableresteds
+refreshrate
+gateway:
+	readgatewaysfromallnamespaces
+	validation_server_addr
+	validation:
+		proxyvalidationserveraddr
+		alwaysaccept
+		allowwarnings
+		disabletransformationvalidation
+		validationservergrpcmaxsizebytes
+		validation_webhook_tls_cert
+		validation_webhook_tls_key
+
+
+> node 添加到 NG 后ip 不可更改
+> node envoy 需要记录启动日志

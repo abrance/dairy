@@ -1,0 +1,66 @@
+> webhook 开发
+	>> 使用
+		>>> wh.validator.lastsnapshot
+
+192.192.100.68   gitlab/文件服务器 root 123.com/456
+192.192.100.69   dtx                root 123.com/456
+192.192.100.70   zhang              root 123.com/456
+192.192.100.71   songyi             root 123.com/456
+192.192.100.72   wenyi              root 123.com/456
+192.192.100.73   fanzhongxing       root 123.com/456
+
+> webhook 验证是否能工作
+
+
+#!/bin/bash
+
+echo "install emacs ..."
+yum install wget gcc ncurses-devel clang git -y
+
+if [ ! -d "/opt/software" ]
+  then
+    mkdir -p /opt/software
+fi
+
+cd /opt/software
+
+wget https://mirrors.sjtug.sjtu.edu.cn/gnu/emacs/emacs-26.3.tar.xz --no-check-certificate
+xz -d emacs-26.3.tar.xz  # 解压
+tar -xvf emacs-26.3.tar
+cd emacs-26.3  # 进入安装目录
+# 配置参数 提示什么就加上什么参数
+./configure --with-x-toolkit=no  --with-gif=no --with-tiff=no  --with-gnutls=no  --with-jpeg=no  --with-png=no
+make && make install
+# 安装完毕
+# 加载常用配置
+mkdir settings
+git clone https://gitee.com/abrance/emacs_set.git settings
+cd settings
+mkdir -p ~/.emacs.d/elpa
+cp --force init.el ~/.emacs.d
+cp -r --force --parents elpa ~/.emacs.d
+echo "install end"
+
+
+> envoy日志访问服务
+	docker run -dit -p 5001:8080 zirain/envoy-als-server:v0.0.1
+
+> gitlab 数据迁移
+	>> 注意
+		版本一定要相同才可以迁移
+	>> 参考
+		https://cloud.tencent.com/developer/article/1535601
+	>> 打包旧仓库数据
+------------------------------------------------------------
+# 会在备份目录（在gitlab.rb设置）生成一个 tar 文件
+gitlab-rake gitlab:backup:create RAILS_ENV=production
+------------------------------------------------------------
+	>> 备份恢复
+------------------------------------------------------------
+# 恢复时会清除所以这里的数据，
+chown -R git.git $BACKUP_DIR
+# BACKUP_FILE_PREFIX 是 _gitlab_backup 的前缀
+gitlab-rake gitlab:backup:restore RAILS_ENV=production BACKUP=$BACKUP_FILE_PREFIX
+------------------------------------------------------------
+	>> 迁移后会将账号密码全部迁移
+		

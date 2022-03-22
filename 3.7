@@ -1,0 +1,300 @@
+> 转换设计文档评审
+	>> 关键
+		最后生成的xDSSnapshot 和envoy 所需要的 xDS 协议字段能不能匹配
+	>> 前提
+		我们认为gloo 最后生成的 xDSSnapshot 和 envoy xDS 字段是匹配的（就算不匹配也是极少部分）。说明如果我们大量参考gloo 生成 xDSSnapshot 的代码是可行的
+	>> 两方面
+		>>> GW(VS)生成proxy 的流程
+			不会变
+		>>> 配置项的细节
+			可能会有变化
+			
+		为了避免某些内容讲两遍，我们只对现在 DAM 的对象转换进行说明。在具体配置项通过两者的对比进行说明。
+		gateway层代码，snapshot 的机制，怎么使用snapshot 以及转换的内容(对象的组装)
+
+> 转换设计文档
+  >> 概述
+    dam项目目前由两个子项目组成，gateway子项目和 dam 子项目，(为了区分 gateway子项目和项目中的 gateway对象，将gateway对象称为GW 对象)。gateway 负责 GW VS 对象的管理，dam 负责upstream endpoint 对象的管理。gateway 将 GW VS Route 对象转为 Proxy对象，dam 将 Proxy upstream Endpoint 对象转换为 xDSSnapshot 对象。
+  >> 思路
+    dam 基于 gloo 1.7 版本进行二次开发而来，对比 dam 子项目 和 gloo 子项目，upstream endpoint 对象没有发生变化，而gateway 子项目中 GW VS 对象发生了很大的变化（proxy对象没有发生变化，因为proxy对应的是envoy配置xDS协议有关）。通过分析可以认识到，dam和 gloo层的对象转换没有发生任何变化；然而gateway 这一层中转换为 Proxy 时，发生了比较大的变化，虽然如此，在这一层的转换过程中，应该参照之前的流程实现转换逻辑，做到大范围的代码复用，快速开发以实现需求，这是dam 转换需求的实现思路。
+  >> 准备工作
+    >>> gloo GW(VS) -> PROXY 具体转换流程
+      gloo Proxy 生成过程：https://www.mubucm.com/doc/2sFXlYerCIC
+      
+      -- ** 将同一proxyName的GW组成一个proxy:GWList a的map
+      遍历 map，拿到同一个ProxyName下的GWList 
+      根据namespace过滤 GWList
+      ** 验证 gateway 中 http 类型 gateway 中的 VS 是否真实存在，验证是否有重复地址的 gateway，异常则丢弃
+      ** 遍历GWList，获取GW，然后遍历 snap 里的 VSList，如果GW 里存在就添加到 VSForGWList
+      ** 验证 VSForGWList VS domain，如果重复，则报异常
+      如果 VS 的 oneWayTls没配，加上全局默认配置的 oneWayTls      
+      ** 通过VS组装 VH 对象，把 VHList 和 sslConfig 组装到 listener 中
+      ListenerList 组装成 Proxy
+      
+    >>> gloo Proxy -> xDSsnapshot
+      gloo xDSsnapshot 生成过程 https://www.mubucm.com/doc/1cTTAfMIFWS
+
+  >> 流程
+    >>> gateway 生成 proxy 对象
+      https://www.mubucm.com/doc/43879ZUV63S
+    >>> dam  生成xDSsnapshot 对象
+      https://www.mubucm.com/doc/4RCH5x-v8YS
+			>>>> 为什么不先从 VS(从小到大)开始转换
+			>>>> 为什么不干脆一个函数做验证，一个函数做转换，一个函数做组装
+				这样会做很多次重复的对象解开和遍历
+
+> 需要的资料
+	>> DAM 转换设计文档
+	>> DAM GLOO proto对比文件
+	>> DAM 项目代码
+	>> GATEWAY 生成 Proxy 流程图
+	>> DAM proxy->xDS 流程图
+	>> DAM envoy连接图
+	>> DAM gateway 对象层级图
+
+************************************************************
+DAM envoy连接图
+------------------------------------------------------------
+┌───────────────────────────────┐
+│            dam                │
+│                               │
+│         xDS snapshot          │
+│                               │
+│   proxy1    proxy2    proxy3  │
+│   ┌────┐    ┌────┐    ┌────┐  │
+│   │LDS │    │LDS │    │LDS │  │
+│   │RDS │    │RDS │    │RDS │  │
+│   │CDS │    │CDS │    │CDS │  │
+│   │EDS │    │EDS │    │EDS │  │
+│   │... │    │... │    │... │  │
+│   └────┘    └────┘    └────┘  │
+└───────────────────────────────┘
+     ▲        ▲          ▲
+     │        │          │
+ ┌───┴────┐ ┌─┴──────┐ ┌─┴──────┐
+ │ envoy1 │ │ envoy2 │ │ enovy3 │
+ └────────┘ └────────┘ └────────┘
+------------------------------------------------------------
+
+DAM proxy->xDS 流程图
+------------------------------------------------------------
+                       gloo
+
+
+    1     ┌────────────────────┐
+────────► │ proxyNamespaceChan │
+          └────────┬───────────┘
+                   │2
+                   ▼
+              ┌───────────┬───────────┐
+              │ proxyChan │           │
+              │           │proxy      │
+              │    3      │           │
+              │  ┌────────┤snapshot   │
+              │  │hasher  │           │
+              └──┴─┬──────┴───────────┘
+                   │4
+                   ▼
+          ┌───────────────┬────────────┐
+          │   ApiChan     │            │
+          │               │            │
+          │               │            │
+          │       5       │            │
+          │               │ApiSnapshot │
+          │               │            │
+          │  ┌────────────┤            │
+          │  │   hasher   │            │
+          │  └────────────┤            │
+          │               │            │
+          │  ┌────────────┤            │
+          │  │   emiter   │            │
+          └──┴─────┬──────┴────────────┘
+                   │
+                   │6
+                   ▼
+            ┌───────────────┐
+            │    envoy      │
+            └───────────────┘
+
+   1 proxy update
+
+   2 proxyNamespaceChan send updated proxy to proxyChan
+
+   3 new proxy compare with Old proxySnapshot by hasher to consider
+     if sending data to ApiChan or droping away
+
+   4 proxyChan send data to ApiChan
+
+   5 new ApiSnapshot compare with Old ApiSnapshot by hasher
+     to consider if sending data to envoy by emiter
+
+	 6 send to envoy
+------------------------------------------------------------
+
+DAM 生成 proxy 流程图
+------------------------------------------------------------
+    ┌───────────────────────┐   ┌───────────┐
+    │                       │   │           │
+    │        gateway        │   │   gloo    │
+    │                       │   │           │
+    │                       │   │           │
+  1 │   ┌───┐ 3    ┌─────┐  │   │   ┌───┐   │
+ ───┼─► │GWS├───►  │     │  │ 5 │   │   │   │
+    │   └───┘      │     ├──┼───┼─► │   │   │
+    │              │proxy│  │   │   │xDS│   │
+  2 │   ┌───┐ 4    │     │◄─┼───┼── │   │   │
+────┼─► │VSS├───►  │     │  │ 6 │   │   │   │
+    │   └───┘      └──┬──┘  │   │   └───┘   │
+    │                 │     │   │           │
+    └─────────────────┼─────┘   └───────────┘
+                      │
+                      ▼
+                  ┌───────────────┐
+                  │               │
+   1 post GW      └───────────────┘
+
+   2 post VS
+
+   3 verify and translate GW options
+
+   4 verify and translate VS options
+
+   5 call if generate xDS (true of false)
+
+   6 return true or false
+------------------------------------------------------------
+
+DAM gateway 对象层级
+------------------------------------------------------------
+                                                                  ┌──────────────┐
+                                                           ┌──────┤virtualService│
+                                                           │      └──────────────┘
+                                                ┌──────────┴─┐
+                                         ┌──────┤HttpServer  │
+                                         │      └──────────┬─┤    ┌──────────────┐
+                                         │                 └─┴────┤virtualService│
+                                         │                        └──────────────┘
+                                ┌────────┴─┐    ┌────────────┐
+                        ┌───────┤listener  ├────┤HTTPServer  │
+                        │       └────────┬─┘    └────────────┘
+                        │                │
+                        │                │
+                        │                │      ┌────────────┐
+                  ┌─────┴─┐              └──────┤TCPServer   │
+         ┌────────┤gateway│                     └────────────┘
+         │        └─────┬─┘
+         │              │
+         │              │
+         │              │
+         │              │
+         │              │       ┌──────────┐
+         │              └───────┤listener  │
+         │                      └──────────┘
+         │
+┌────────┴──┐
+│node group │
+└────────┬──┘
+         │
+         │
+         │
+         │
+         │
+         │
+         │        ...
+         │       ┌───────┐
+         └───────┤gateway│
+                 └───────┘
+------------------------------------------------------------
+************************************************************
+
+
+>>>>> desiredListenerForHttp(listener Listener, servers Servers, reports reporter.ResourceReports) *gloov1.Listener  根据ListenerOptions server 地址端口组装为 Proxy listener 对象
+
+> generatedDesiredProxies(ctx context.Context, snap *v1.ApiSnapshot) reconciler.GeneratedProxies
+	>> 概述
+		gateway 新的转换过程： 将 ng_name 相同的 GW 合并组装成大的 Listeners 保存到 Proxy 中，最终生成 map ng_name:proxy
+	>> 返回值 reconciler.GeneratedProxies
+		>>> type GeneratedProxies map[*gloov1.Proxy]reporter.ResourceReports  map, Proxy:ResourceReports
+			>>>> Proxy {Listeners}
+			>>>> ResourceReports map[resources.InputResource]Report  map, InputResource:Report
+				InputResource {Resource} ???  输入的资源
+				Report {Warning []string, Errors error}  状态
+	>> 函数体
+		>>> GatewaysByNGName(gateways GatewayList) map[string]GatewayList 返回map，把 gateway 中 ng_name 拿出来，作为 ng_name: GWS 中 的键
+			e.g. GW1:[NG1, NG2] GW2:[NG1] GW3:[NG2] -> NG1:[GW1, GW2] NG2:[GW1, GW3]
+		>>> Translate(ctx context.Context, NGName, namespace string, snap *v1.ApiSnapshot, gatewaysByNG v1.GatewayList) (Proxy, ResourceReports)  将 snap 和 gatewaysByNG 组装成了 listeners 由 Proxy 保存
+			>>>> Accept(res ...InputResource) ResourceReports 接收GW VS 资源的报告，最后生成一个树形的结构，任何一层级发生异常，可以快速定位
+			>>>> validateGateways(gateways GatewayList, virtualServices VirtualServiceList, reports ResourceReports)  校验同一NG中的 GW中的 Listener 是否 端口重叠
+			>>>> 遍历 同一NG 的GWS listeners
+			>>>> GenerateListener(ctx context.Context, NGName string, snap *v1.ApiSnapshot, listener Listener, reports ResourceReports) []Listener 将每个 servers 组装成了 Proxy listener对象
+				>>>>> getGWServersForListener(ctx context.Context, listener Listener) []GWServer  获取一个 listener 下所有 server
+				>>>>> validateServers(ctx Context, servers []GWServer, listener Listener, reports []ResourceReporters) 校验一个listener下 server的 sni 是否重叠，校验 没有 ssl 配置的 server 是否数量超过1（server 间通过 sni 进行匹配的）
+				>>>>> GenerateServer(ctx Context, snap ApiSnapshot, server GWServer, report []ResourceReporters) Server  遍历了GWServer，每个 GWServer生成一个 server 对象
+					>>>>>> getVirtualServicesForServer(server GWServer, virtualServices VirtualServiceList) v1.VirtualServiceList 获取这个 Server 的 VS 对象
+					>>>>>> validateVirtualServiceDomains(server GWServer, virtualServices v1.VirtualServiceList, reports reporter.ResourceReports)  因为envoy需要通过domain进行 VH匹配，把 domain 重复的 VS 取出来，将 domain 和 VS 都取出来，报告异常
+					>>>>>> desiredServerForHttp(virtualServices v1.VirtualServiceList, reports reporter.ResourceReports) Server 把同一server下的 VS组装为 VH 并作为列表 组装为一个Proxy server 对象
+						>>>>>>> virtualServiceToVirtualHost(vs VirtualService, reports reporter.ResourceReports) (*gloov1.VirtualHost, error)  通过 VS 组装 VH 对象（放弃路由表组件）（是否需要路由短路提醒功能）
+							>>>>>>>> validateRoute(vs VirtualService, reports ResourceReporters)  验证 Route 的匹配是否合法（包括正则表达式语法的验证等，这里不进行重叠的验证，因为Route完全可以重叠，重叠后只会按照先来后到执行，第二次就不会走到这个路由的，唯一需要担心的是路由短路现象，比较复杂）
+							>>>>>>>> generateRoute(vs VirtualService, reports ResourceReporters) (RouteList, error)  根据VS生成 RouteList 对象
+								getVSRoute(vs VirtualService, reports ResourceReporters)  RouteList 获取 VS 中的 Route 对象
+								validateAndMergeRoute(routes RouteList) (RouteList,  error) 校验是否由route可以合并并且执行合并操作（匹配的合并和头部维护的合并）
+							>>>>>>>> getVSFilter(vs VirtualService) FilterMap  取 map，获取插件实例protobuf.any 的配置（调用插件的函数生成的）map<string, google.protobuf.Any> typed_per_filter_config
+							>>>>>>>> VH{} 根据 VS 配置 filterMap  Routes 组装 VH 对象 
+						>>>>>>> Server{} 根据 GWServer option 和 VH 组装 Proxy server 对象
+				>>>>> desiredListenerForHttp(listener Listener, servers Servers, reports reporter.ResourceReports) *gloov1.Listener  根据ListenerOptions server 地址端口组装为 Proxy listener 对象
+			>>>> Proxy{}  由Proxy Listeners 组装为 Proxy
+
+
+> 检验流程设计
+	>> node
+	>> nodegroup
+		>>> 新增
+		>>> 更新
+			>>>>
+		>>> 删除
+	>> sDS
+		>>> 新增
+			>>>> 校验证书和密钥合法性
+		>>> 更新
+			>>>> 校验证书和密钥合法性
+		>>> 删除
+			>>>> 是否被引用
+	>> GW
+		>>> 新增
+			>>>> ng_name 是否存在 ...
+		>>> 更新
+			>>>> ng_name 是否存在 ...
+		>>> 删除
+		
+	>> VS
+		>>> 新增
+			>>>> ...
+		>>> 更新
+			>>>> ...
+		>>> 删除
+			>>>> ...
+	>> Upstream
+	
+	>> 插件
+		>>> 新增
+			>>>>
+		>>> 更新
+			>>>> 先卸载再新增
+		>>> 删除(卸载)
+	>> 插件实例
+		>>> 新增
+			>>>> rawname type ver 拼接 插件资源中是否存在；全局配置送到插件包里
+		>>> 绑定
+			>>>> 校验 插件实例全局配置 json 字符
+		>>> 更新
+			>>>> 校验 插件实例全局配置 json 字符
+		>>> 解绑
+		>>> 删除
+			>>>> VS 中是否有引用
+	>> Endpoint
+	
+> 数据中心和 NG 是多对多的关系，一个数据中心可以包含多个 NG，一个 NG 也可以包含多个数据中心的机器。可以做到多个数据中心的API聚合，但是考虑到延迟和带宽的限制，有些功能不要聚合，比如高可用和健康检查。
+
+> webhook 开发
+	>> 使用
+		>>> validator
