@@ -1,0 +1,40 @@
+> swagger 方案
+	>> api 来源
+		apiserver
+		curl $apiserver_address >> json
+	>> 去掉 与项目无关的 api 生成新的 json 脚本实现 
+	>> json 文件输出到 swagger 容器中
+	  docker run -itd --name myopenapi -p 80:8888 -v $swagger_yaml:/app/app.yml  -v $swagger_json:/app/data/openapi.json xiaoymin/knife4j
+	>> 流程
+	  在yaml 文件中 编写 字段的注释
+		从 apiserver 提取 json 文件
+		json 文件 处理
+		json 文件输入到 容器中 作为 swagger 服务运行
+	>> 注册后脚本启动服务
+------------------------------------------------------------
+# 示例 192.192.100.59 上的 apiserver 为例，直接执行脚本即可更新 swagger 服务
+# apiserver
+mkdir -p /opt/software/parse-json && cd /opt/software/parse-json
+curl http://192.192.100.59:8080/openapi/v2 > k8s-swagger.json
+wget --http-user=team  --http-passwd=OURYUN http://192.192.100.68:12800/bin/parse-json
+chmod +x parse-json
+./parse-json
+docker stop myopenapi
+docker rm myopenapi
+cat << EOF > openapi.yaml
+server:
+  port: 8888
+knife4j:
+  enableAggregation: true
+  disk:
+    enable: true
+    routes:
+      - name: ouryun
+        location: /app/data/openapi.json
+EOF
+# 运行 docker swagger 服务
+docker run -itd --name myopenapi -p 80:8888 -v ${PWD}/openapi.yaml:/app/app.yml -v ${PWD}/new-swagger.json:/app/data/openapi.json xiaoymin/knife4j
+# 访问文档
+# http://192.192.100.59/doc.html
+------------------------------------------------------------
+	

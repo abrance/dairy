@@ -1,0 +1,81 @@
+> make
+> mock
+> struct
+
+
+> 创建一个对象
+	>> 需求 当 A 发生了改变时，影响的范围尽量少
+		往makeA入口塞入 mockfuncA ，返回mockA，塞入 makefuncA，返回 A
+		MakeAFunc
+		MakeACTX
+		MakeAFactory(MakeAFunc)
+		
+		CTX 解决 产生多条数据之间
+	>> make Action
+		makeAction(makeActionfunc, )
+
+webserver 架构图
+------------------------------------------------------------
+                                                   webserver
+
+
+
+                                                     ┌───────────────────────┐
+                                                     │                       │
+             ┌──────┐    ┌──────┐    ┌─────────┐     │  ┌───────────┐        │
+             │      │    │      │    │         │     │8 │           │        │
+             │      │    │      │    │         │    ─┼─►│ViewHandler│        │
+┌──────┐     │      │    │      │    │         │     │  │           │        │
+│      │  1  │      │ 3  │      │ 5  │         │ 7   │  └───────────┘        │
+│ user ├────►│      ├───►│      ├───►│         ├───► │                       │
+│      │     │      │    │      │    │         │     │                       │
+└──────┘     │      │    │      │    │         │     │  ┌─────────────┐      │12    ┌───────────┐
+          2  │authen│ 4  │author│ 6  │admission│     │9 │             ├──────┼────► │           │
+        ◄────┤      │◄───┤      │◄───┤         │    ─┼─►│bypassHandler│      │13    │           │
+             │      │    │      │    │         │     │18│             │◄─────┼───── │           │
+             │      │    │      │    │         │    ◄├──┴─────────────┘      │      │           │
+             │      │    │      │    │         │     │                       │      │           │
+             │      │    │      │    │         │     │                       │      │           │
+             │      │    │      │    │         │     │10┌────────────────┐   │14    │           │
+             └──────┘    └──────┘    └─────────┘    ─┼─►│                ├───┼────► │           │
+                                                     │19│ListWatchHandler│   │15    │ apiserver │
+                                                    ◄├──┤                │◄──┼───── │           │
+                         18                          │  └────────────────┘   │      │           │
+         ◄────────────────────────────────────────   │                       │      │           │
+                                                     │                       │      │           │
+                                                     │11┌──────────────────┐ │16    │           │
+                                                    ─┼─►│                  ├─┼────► │           │
+                                                     │20│AggregationHandler│ │17    │           │
+                                                    ◄├──┤                  │◄├───── │           │
+                                                     │  └──────────────────┘ │      │           │
+                                                     │                       │      └───────────┘
+                                                     └───────────────────────┘
+																										 
+1 user send request to webserver to authentication
+2 authentication fail
+3 authentication success and authorization
+4 authorization fail
+5 authorization success and admission
+6 admission fail
+7 admission success and invoke webserver Handlers
+8 invoke ViewHandler to get html css js png ...
+9 invoke bypassHandler to $12 send direct request to apiserver to $13 get apiserver response and $18 direct response
+10 invoke ListWatchHandler to $14 send watch request to apiserver to watch some resource $15 resource update will notify ListWatchHandler
+  and $19 update webpage (websocket?)
+11 invoke AggregationHandler to $16 send some requests to apiserver to $17 get apiserver some responses and $20 aggregate the responses to
+  a desire response
+
+1 用户发请求给webserver 进行 用户身份认证
+2 用户身份认证失败（没有此用户）
+3 身份认证成功 然后进行 角色认证
+4 角色认证失败（没有此角色）
+5 角色认证成功 然后进行 权限认证
+6 权限认证失败（权限不够）
+7 权限认证成功 然后调用 webserver 处理层处理请求
+8 调用 ViewHandler 进行处理，将获取前端文件返回响应
+9 调用 bypassHandler 进行处理 $12 直接发送 request 给 apiserver 并直接将 apiserver response 返回
+10 调用 ListWatchhandler 进行处理 $14 向 apiserver 发送 watch 请求 对一些资源进行监听，$15 当watch 的资源发生更新，将通知 Handler $19
+  Handler 再通知前端进行页面更新
+11 调用 Aggregationhandler 进行处理 $16 向 apiserver 发送一系列请求后对其响应进行处理后返回想要的响应
+
+------------------------------------------------------------

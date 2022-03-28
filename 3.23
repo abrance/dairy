@@ -1,0 +1,537 @@
+> TODO
+	测试
+	帮宋燚搭环境
+
+> gateway 测试流程
+	>> 单元测试
+		go 各个函数 方法 输入输出结果检查
+	>> 基准测试
+		每个关键函数方法所花 时间
+	>> 功能测试
+		>>> 对象层面
+			>>>> webhook
+			>>>> Translate
+			>>>> gateway
+				先不做
+		>>> 请求方式
+			>>>> yaml
+			>>>> json
+
+> 测试代码
+	>> 单元测试
+		放在各个模块下
+	>> 功能测试
+		放在项目路径test目录下
+	>> 基准测试
+		放在项目路径test目录下		
+
+> 执行测试的方式
+	>> go test
+
+> 达到效果
+	>> 出测试报告 统计 关键函数花费时间 测试项目
+	>> 测试框架易用
+
+> 单机部署 apiserver 环境
+************************************************************
+init-env.sh
+------------------------------------------------------------
+# 关闭防火墙
+systemctl stop firewalld
+systemctl disable firewalld
+# 关闭selinux
+setenforce 0
+sed -i 's/enforcing/disabled/' /etc/selinux/config
+# 关闭swap
+swapoff -a
+# 同步时间 每天
+yum install ntpdate -y
+ntpdate -u ntp.api.bz
+echo "0 2 * * * ntpdate -u ntp.api.bz" >> /var/spool/cron/root
+
+# docker 安装 最新版
+curl -fsSL https://get.docker.com/ | sh
+systemctl start docker
+systemctl enable docker.service
+------------------------------------------------------------
+
+init-etcd.sh
+------------------------------------------------------------
+docker network create --driver bridge --subnet=10.2.36.0/16 --gateway=10.2.1.1 mynet2
+docker network ls
+
+docker run -d \
+-p 2479:2379 \
+-p 2381:2380 \
+--name node1 \
+--network=mynet2 \
+--ip 10.2.36.1 \
+registry.aliyuncs.com/google_containers/etcd:3.3.10 \
+etcd \
+-name node1 \
+-advertise-client-urls http://10.2.36.1:2379 \
+-initial-advertise-peer-urls http://10.2.36.1:2380 \
+-listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 \
+-initial-cluster-token etcd-cluster \
+-initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" \
+-initial-cluster-state new
+
+docker run -d \
+-p 2579:2379 \
+-p 2382:2380 \
+--name node2 \
+--network=mynet2 \
+--ip 10.2.36.2 \
+registry.aliyuncs.com/google_containers/etcd:3.3.10 \
+etcd \
+-name node2 \
+-advertise-client-urls http://10.2.36.2:2379 \
+-initial-advertise-peer-urls http://10.2.36.2:2380 \
+-listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 \
+-initial-cluster-token etcd-cluster \
+-initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" \
+-initial-cluster-state new
+
+docker run -d \
+-p 2679:2379 \
+-p 2383:2380 \
+--name node3 \
+--network=mynet2 \
+--ip 10.2.36.3 \
+registry.aliyuncs.com/google_containers/etcd:3.3.10 \
+etcd \
+-name node3 \
+-advertise-client-urls http://10.2.36.3:2379 \
+-initial-advertise-peer-urls http://10.2.36.3:2380 \
+-listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 \
+-initial-cluster-token etcd-cluster \
+-initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" \
+-initial-cluster-state new
+------------------------------------------------------------
+
+install-go-1.17.sh
+------------------------------------------------------------
+yum install -y wget
+
+cd /opt/software
+wget https://golang.google.cn/dl/go1.17.linux-amd64.tar.gz
+tar -zxf go1.17.linux-amd64.tar.gz -C /usr/local
+
+cat >> /etc/profile << EOF
+# golang
+export GOROOT=/usr/local/go
+export GOPATH=/data/gopath
+export PATH=\$PATH:\$GOROOT/bin:\$GOPATH/bin
+export GO111MODULE=on
+EOF
+
+mkdir -p /data/gopath
+source /etc/profile
+go env -w  GOPROXY=https://goproxy.cn,direct
+------------------------------------------------------------
+
+get-kubectl-apiserver.sh
+------------------------------------------------------------
+# wget
+mkdir -p /opt/k8s && cd /opt/k8s
+wget --http-user=team  --http-passwd=OURYUN http://192.192.100.68:12800/bin/kube-apiserver
+wget --http-user=team  --http-passwd=OURYUN http://192.192.100.68:12800/bin/kubectl
+chmod +x kubectl && chmod +x kube-apiserver
+# 链接
+ln -s ${PWD}/kubectl /usr/local/bin/
+cat >> /etc/profile << EOF
+alias k="kubectl"
+EOF
+source /etc/profile
+------------------------------------------------------------
+
+gen-cert.sh
+------------------------------------------------------------
+# 获取 cfssl 在 ./bin目录下
+mkdir -p /opt/k8s/work && cd /opt/k8s
+wget --http-user=team  --http-passwd=OURYUN  http://192.192.100.68:12800/bin/cfssl/cfssl_linux-amd64
+wget --http-user=team  --http-passwd=OURYUN  http://192.192.100.68:12800/bin/cfssl/cfssljson_linux-amd64
+mv cfssl_linux-amd64 cfssl && chmod +x cfssl
+mv cfssljson_linux-amd64 cfssl && chmod +x cfssljson
+ln -s ${PWD}/cfssl /usr/local/bin
+ln -s ${PWD}/cfssljson /usr/local/bin
+
+# 创建 logs 目录
+mkdir -p /opt/k8s/logs
+
+cd work
+# 需要
+# ca-csr.json
+# ca-config.json
+# server-csr.json
+# admin-csr.json 用于生成 kubectl admin 用户 kubeconfig
+
+# 生成 ca-csr.json
+cat << EOF >> ca-csr.json
+{
+  "CN": "kubernetes",
+  "hosts": [
+    "127.0.0.1",
+    "192.192.100.59",
+    "192.192.100.60",
+    "192.192.100.61",
+    "192.192.100.71",
+    "kubernetes",
+    "kubernetes.default",
+    "kubernetes.default.svc",
+    "kubernetes.default.svc.cluster",
+    "kubernetes.default.svc.cluster.local."
+  ],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "ST": "Shanghai",
+      "L": "Shanghai",
+      "O": "k8s",
+      "OU": "System"
+    }
+  ]
+}
+EOF
+
+# ca-config.json
+cat << EOF >> ca-config.json
+{
+  "signing": {
+    "default": {
+      "expiry": "87600h"
+    },
+    "profiles": {
+      "kubernetes": {
+         "expiry": "87600h",
+         "usages": [
+            "signing",
+            "key encipherment",
+            "server auth",
+            "client auth"
+        ]
+      }
+    }
+  }
+}
+EOF
+
+cat << EOF > server-csr.json
+{
+  "CN": "kubernetes",
+  "hosts": [
+    "127.0.0.1",
+    "192.192.100.59",
+    "192.192.100.60",
+    "192.192.100.61",
+    "192.192.100.71",
+    "kubernetes",
+    "kubernetes.default",
+    "kubernetes.default.svc",
+    "kubernetes.default.svc.cluster",
+    "kubernetes.default.svc.cluster.local."
+  ],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "ST": "Shanghai",
+      "L": "Shanghai",
+      "O": "k8s",
+      "OU": "System"
+    }
+  ]
+}
+EOF
+
+cat << EOF > admin-csr.json
+{
+  "CN": "admin",
+  "hosts": [
+    "127.0.0.1",
+    "192.192.100.59",
+    "192.192.100.60",
+    "192.192.100.61",
+    "192.192.100.71",	
+    "kubernetes",
+    "kubernetes.default",
+    "kubernetes.default.svc",
+    "kubernetes.default.svc.cluster",
+    "kubernetes.default.svc.cluster.local."
+  ],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "O": "system:masters",
+      "OU": "System",
+      "L": "Shanghai",
+      "ST": "Shanghai"
+    }
+  ]
+}
+EOF
+
+# 签发 ca
+cfssl gencert -initca ca-csr.json | cfssljson -bare ca -
+# 签发 apiserver 证书
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes server-csr.json | cfssljson -bare server
+# 签发 admin 用户证书，绑定用户角色，供 kubectl KUBECONFIG 使用
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes admin-csr.json | cfssljson -bare admin
+
+# token
+cat > token.csv << EOF
+c47ffb939f5ca36231d9e3121a252940,kubernetes-admin,1,"system:kubernetes-admin"
+EOF
+
+# apiserver bootstrap
+cat << EOF > kube-apiserver.conf 
+KUBE_APISERVER_OPTS="--logtostderr=false \
+--v=5 \
+--etcd-servers=http://127.0.0.1:2379 \
+--bind-address=192.192.100.71 \
+--secure-port=6443 \
+--advertise-address=192.192.100.71 \
+--allow-privileged=true \
+--service-cluster-ip-range=192.192.100.1/24 \
+--enable-admission-plugins=NamespaceLifecycle,LimitRanger,ServiceAccount,ResourceQuota,NodeRestriction \
+--authorization-mode=RBAC,Node \
+--enable-bootstrap-token-auth=true \
+--token-auth-file=/opt/k8s/work/token.csv \
+--service-node-port-range=30000-32767 \
+--kubelet-client-certificate=/opt/k8s/work/server.pem \
+--kubelet-client-key=/opt/k8s/work/server-key.pem \
+--tls-cert-file=/opt/k8s/work/server.pem  \
+--tls-private-key-file=/opt/k8s/work/server-key.pem \
+--client-ca-file=/opt/k8s/work/ca.pem \
+--service-account-key-file=/opt/k8s/work/ca-key.pem \
+--service-account-issuer=api \
+--service-account-signing-key-file=/opt/k8s/work/server-key.pem \
+--requestheader-client-ca-file=/opt/k8s/work/ca.pem \
+--proxy-client-cert-file=/opt/k8s/work/server.pem \
+--proxy-client-key-file=/opt/k8s/work/server-key.pem \
+--requestheader-allowed-names=kubernetes \
+--requestheader-extra-headers-prefix=X-Remote-Extra- \
+--requestheader-group-headers=X-Remote-Group \
+--requestheader-username-headers=X-Remote-User \
+--enable-aggregator-routing=true \
+--audit-log-maxage=30 \
+--audit-log-maxbackup=3 \
+--audit-log-maxsize=100 \
+--audit-log-path=/opt/k8s/logs/k8s-audit.log"
+EOF
+-----------------------------------------------------------
+
+init-apiserver.sh
+------------------------------------------------------------
+cat << EOF > /usr/lib/systemd/system/kube-apiserver.service
+[Unit]
+Description=Kubernetes API Server
+Documentation=https://github.com/kubernetes/kubernetes
+
+[Service]
+EnvironmentFile=/opt/k8s/work/kube-apiserver.conf
+ExecStart=/opt/k8s/kube-apiserver \$KUBE_APISERVER_OPTS
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+------------------------------------------------------------
+
+gen-kubeconfig.sh
+------------------------------------------------------------
+mkdir -p /root/.kube/ && cd /root/.kube
+# 生成 kubectl 的 kubeconfig
+
+k config set-cluster kubernetes \
+	--certificate-authority=/opt/k8s/work/ca.pem \
+	--embed-certs=true \
+	--server=https://192.192.100.71:6443 \
+	--kubeconfig=config
+	
+k config set-credentials cluster-admin \
+	--client-certificate=/opt/k8s/work/admin.pem \
+	--client-key=/opt/k8s/work/admin-key.pem \
+	--embed-certs=true \
+	--kubeconfig=config
+
+k config set-context default \
+	--cluster=kubernetes \
+	--user=cluster-admin \
+	--kubeconfig=config
+
+k config use-context default --kubeconfig=config
+k get ns
+------------------------------------------------------------
+************************************************************
+
+
+> wget
+------------------------------------------------------------
+# 输入用户名密码
+wget --http-user=team  --http-passwd=OURYUN  http://192.192.100.68:12800/bin/cfssl/cfssl_linux-amd64
+# 下载目录，上层目录也会保留 这里会保留 ./bin/cfssl
+wget -r -np -nH -R index.html  http://192.192.100.68:12800/bin/cfssl/
+------------------------------------------------------------
+	
+
+> kubectl admin用户签发证书和生成kubeconfig
+	>> cfssl 签发命令 和 生成 kubeconfig 文件
+------------------------------------------------------------
+# 签发 ca
+cfssl gencert -initca ca-csr.json | cfssljson -bare ca -
+# 签发 admin 用户证书，这个与用户角色绑定了
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes server-csr.json | cfssljson -bare server
+# 生成 kubeconfig ，会生成在本目录，需要把 kubeconfig 移到 $HOME/.kube/下，不然会报错 Unable to connect to the server: x509: certificate signed by unknown authority
+k config set-cluster kubernetes \
+	--certificate-authority=/opt/k8s/work/ca.pem \
+	--embed-certs=true \
+	--server=https://192.192.100.59:6443 \
+	--kubeconfig=config
+
+k config set-credentials cluster-admin \
+	--client-certificate=/opt/k8s/work/admin.pem \
+	--client-key=/opt/k8s/work/admin-key.pem \
+	--embed-certs=true \
+	--kubeconfig=config
+
+k config set-context default \
+	--cluster=kubernetes \
+	--user=cluster-admin \
+	--kubeconfig=config
+
+k config use-context default --kubeconfig=config
+# config 文件转移到 kube 目录下
+mv ./config $HOME/.kube/
+# 检验
+k get ns
+------------------------------------------------------------
+	>> json文件实例
+************************************************************
+ca-config.json
+# 这个profiles kubernetes 需要这样设置，不然后面签发证书报错 5100
+------------------------------------------------------------
+{
+  "signing": {
+    "default": {
+      "expiry": "87600h"
+    },
+    "profiles": {
+      "kubernetes": {
+         "expiry": "87600h",
+         "usages": [
+            "signing",
+            "key encipherment",
+            "server auth",
+            "client auth"
+        ]
+      }
+    }
+  }
+}
+------------------------------------------------------------
+
+ca-csr.json
+# 除了 hosts 字段外建议全抄，与 k8s 角色绑定有关
+------------------------------------------------------------
+{
+  "CN": "kubernetes",
+  "hosts": [
+    "127.0.0.1",
+    "192.192.100.59",
+    "kubernetes",
+    "kubernetes.default",
+    "kubernetes.default.svc",
+    "kubernetes.default.svc.cluster",
+    "kubernetes.default.svc.cluster.local."
+  ],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "ST": "Shanghai",
+      "L": "Shanghai",
+      "O": "k8s",
+      "OU": "System"
+    }
+  ]
+}
+------------------------------------------------------------
+
+admin-csr.json
+# 为admin用户签发证书，除 hosts 外建议全抄
+------------------------------------------------------------
+{
+  "CN": "admin",
+  "hosts": [
+    "127.0.0.1",
+    "192.192.100.59",
+    "192.192.100.60",
+    "192.192.100.61",
+    "kubernetes",
+    "kubernetes.default",
+    "kubernetes.default.svc",
+    "kubernetes.default.svc.cluster",
+    "kubernetes.default.svc.cluster.local."
+  ],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "O": "system:masters",
+      "OU": "System",
+      "L": "Shanghai",
+      "ST": "Shanghai"
+    }
+  ]
+}
+------------------------------------------------------------
+
+server-csr.json
+------------------------------------------------------------
+{
+  "CN": "kubernetes",
+  "hosts": [
+    "127.0.0.1",
+    "192.192.100.59",
+    "192.192.100.60",
+    "192.192.100.61",
+    "kubernetes",
+    "kubernetes.default",
+    "kubernetes.default.svc",
+    "kubernetes.default.svc.cluster",
+    "kubernetes.default.svc.cluster.local."
+  ],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "ST": "Shanghai",
+      "L": "Shanghai",
+      "O": "k8s",
+      "OU": "System"
+    }
+  ]
+}
+------------------------------------------------------------
+************************************************************

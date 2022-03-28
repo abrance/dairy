@@ -1,0 +1,13 @@
+> TODO
+	>> 每个字段对应关系
+
+> ResponseView 加入 Data 数据结构  测试
+
+> validatingwebhookconfiguration 配置
+	>> http://theia.paulacoopergallery.com/view-https-kubernetes.io/docs/reference/kubernetes-api/extend-resources/validating-webhook-configuration-v1/
+	>>
+
+>
+
+> listenerTypes: factories
+> NewTranslator([]ListenerFactory{&HttpTranslator{WarnOnRouteShortCircuiting: warnOnRouteShortCircuiting}, &HttpTranslator{}}, opts)
