@@ -16,8 +16,11 @@
 # apiserver
 mkdir -p /opt/software/parse-json && cd /opt/software/parse-json
 curl http://192.192.100.59:8080/openapi/v2 > k8s-swagger.json
-wget --http-user=team  --http-passwd=OURYUN http://192.192.100.68:12800/bin/parse-json
-chmod +x parse-json
+if [ ! -f "./parse-json" ]; then
+	wget --http-user=team  --http-passwd=OURYUN http://192.192.100.68:12800/bin/parse-json
+	chmod +x parse-json
+fi
+
 ./parse-json
 docker stop myopenapi
 docker rm myopenapi
@@ -37,4 +40,3 @@ docker run -itd --name myopenapi -p 80:8888 -v ${PWD}/openapi.yaml:/app/app.yml 
 # 访问文档
 # http://192.192.100.59/doc.html
 ------------------------------------------------------------
-	

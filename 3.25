@@ -77,5 +77,4 @@ webserver 架构图
 10 调用 ListWatchhandler 进行处理 $14 向 apiserver 发送 watch 请求 对一些资源进行监听，$15 当watch 的资源发生更新，将通知 Handler $19
   Handler 再通知前端进行页面更新
 11 调用 Aggregationhandler 进行处理 $16 向 apiserver 发送一系列请求后对其响应进行处理后返回想要的响应
-
 ------------------------------------------------------------
