@@ -1,0 +1,176 @@
+> 基于 k8s 访问控制机制实现一套企业开发用户管理机制
+	>> 概述
+		k8s 访问控制分三步 认证 鉴权 准入
+		鉴权机制使用 k8s 的 rbac 方式，这样灵活性更高，后期扩展更好
+		>>> 认证有多种方式
+			>>>> HTTPS
+				签发证书 双端认证，这样 APISERVER 可通过ca 签发时的信息，知道这个证书是那个用户；CN 用户名 O 是 用户组；现在用户组的概念只知道默认的用户组情况，不知道怎么创建用户组以及和它绑定的权限
+			>>>> static token   这个需要 control-manager 中的 tokenclean controller ???
+				token.csv 里面只是在使用用户token机制，本质上是为用户认证提供了 https 以外的认证方式(token 鉴权)，所以需要用ca证书进行用户证书的签发 创建角色 和绑定
+			>>>> 用户伪装
+				https://kubernetes.io/zh/docs/reference/access-authn-authz/authentication/#user-impersonation
+				准备一个管理员用户（cluster-admin），需要伪装成 用户A 和用户 B，期望使用管理员用户权限伪装为 A or B 进行 APISERVER 的访问。
+				方式:直接在请求头上加入需要伪装的用户的信息即可 如最简单的：
+------------------------------------------------------------
+# -H "Impersonate-User:jane" 在 header 里面加入了 Impersonate-User:$USERNAME 就可以表示伪装用户的身份
+curl cert -v -XGET -H "Accept:application/json,*/*" -H "User-Agent:kubectl/2.0.13(linux/amd64) kubernetes/fc362e2" -H "Authorization: Bearer c47ffb939f5ca36231d9e3121a252940" -H "Impersonate-User:jane" https://192.192.100.59:6443/apis/dam.ouryun/v1/namespaces/default/plugininstance
+------------------------------------------------------------
+				>>>>> 以下为测试
+					>>>>>> 1. 不需要token 就可以伪装成任意用户
+------------------------------------------------------------
+# jane 用户只有 gateway 组的权限 gw 和 vs 没有 dam 组的权限 plugininstance；cluster-admin 拥有所有权限
+# 伪装成功用例 请求成功
+curl -v -XGET -H "Accept:application/json,*/*" -H "User-Agent:kubectl/2.0.13(linux/amd64) kubernetes/fc362e2" -H "Impersonate-User:jane" http://192.192.100.59:8080/apis/gateway.ouryun/v1/namespaces/default/gateways
+# 伪装成功用例 请求403
+curl -v -XGET -H "Accept:application/json,*/*" -H "User-Agent:kubectl/2.0.13(linux/amd64) kubernetes/fc362e2" -H "Impersonate-User:jane" http://192.192.100.59:8080/apis/dam.ouryun/v1/namespaces/default/plugininstance
+# 不进行伪装用例 请求成功
+curl -v -XGET -H "Accept:application/json,*/*" -H "User-Agent:kubectl/2.0.13(linux/amd64) kubernetes/fc362e2" http://192.192.100.59:8080/apis/dam.ouryun/v1/namespaces/default/plugininstances
+------------------------------------------------------------
+	>> 创建角色（分配权限）
+------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: default
+  name: gwreader
+rules:
+- apiGroups: ["gateway.ouryun"] # "" 标明 core API 组
+  resources: ["gateways", "virtualservices"]
+  verbs: ["get", "watch", "list"]
+------------------------------------------------------------
+	>> 绑定角色和 k8s 用户
+------------------------------------------------------------
+apiVersion: rbac.authorization.k8s.io/v1
+# 此角色绑定允许 "jane" 读取 "default" 名字空间中的 Pods
+kind: RoleBinding
+metadata:
+  name: read-gw
+  namespace: default
+subjects:
+# 你可以指定不止一个“subject（主体）”
+- kind: User
+  name: jane # "name" 是区分大小写的
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  # "roleRef" 指定与某 Role 或 ClusterRole 的绑定关系
+  kind: Role # 此字段必须是 Role 或 ClusterRole
+  name: gwreader     # 此字段必须与你要绑定的 Role 或 ClusterRole 的名称匹配
+  apiGroup: rbac.authorization.k8s.io
+------------------------------------------------------------
+	>> 以https 请求方式为 k8s 用户创建证书进行访问 k8s API
+************************************************************
+generate-jane.sh
+------------------------------------------------------------
+# 生成 pem 证书和私钥文件命令 -profile=$CA名字 -bare $签发的用户名 对应 csr.json 文件中的 CN
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes jane-csr.json | cfssljson -bare jane
+------------------------------------------------------------
+
+jane-csr.json
+------------------------------------------------------------
+{
+  "CN": "jane",
+  "hosts": [
+    "127.0.0.1",
+    "192.192.100.59",
+    "192.192.100.60",
+    "192.192.100.61",
+    "kubernetes",
+    "kubernetes.default",
+    "kubernetes.default.svc",
+    "kubernetes.default.svc.cluster",
+    "kubernetes.default.svc.cluster.local."
+  ],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "O": "",
+      "OU": "System",
+      "L": "Shanghai",
+      "ST": "Shanghai"
+    }
+  ]
+}
+------------------------------------------------------------
+************************************************************
+
+> token 文件的写法
+------------------------------------------------------------
+# token username userid [, groupname]    groupname 现在只知道通过 k get clusterrole 可以看到默认的，不知道怎么创建用户组以及和它绑定的权限
+c47ffb939f5ca36231d9e3121a252940,jane,1
+------------------------------------------------------------
+
+
+将 k8s openapiv2 展开为 可以在 swagger-ui 展示的脚本
+************************************************************
+parse-json.py
+------------------------------------------------------------
+import json
+"""
+definitions 里面定义了 成型的数据结构
+spec 在 definitions 里面
+将 spec 和 spec 里所有数据结构 type 为 object 拿出来 处理: spec 为例
+    spec: "$ref": "#/definitions/ouryun.gateway.v1.TlsCertValidation"
+
+"""
+
+
+def parse():
+    swagger = json.load(open("./k8s-swagger.json", encoding="utf-8"))
+
+    definitions = swagger["definitions"]
+
+    for i in range(20):
+        new_definitions = {}
+        for api_name, v in definitions.items():
+            if "ouryun" not in api_name:
+                new_definitions[api_name] = v
+                continue
+            properties = v.get("properties")
+            if not properties:
+                new_definitions[api_name] = v
+                continue
+            # property_name routes
+            for property_name, property_v in properties.items():
+                def_type = property_v.get("type")
+                if def_type == "object":
+                    new_def_k = "{}-{}".format(api_name, property_name)
+                    properties[property_name] = {"$ref": "#/definitions/{}".format(new_def_k)}
+                    new_definitions[api_name] = v
+                    new_definitions[new_def_k] = property_v
+                elif def_type == "array":
+                    items = property_v.get("items")
+                    if items.get("type") == "object":
+                        # if
+                        new_def_k = "{}-{}-{}".format(api_name, property_name, "items")
+                        property_v["items"] = {"$ref": "#/definitions/{}".format(new_def_k)}
+                        new_definitions[api_name] = v
+                        new_definitions[new_def_k] = items
+                    else:
+                        new_definitions[api_name] = v
+                else:
+                    new_definitions[api_name] = v
+        definitions = new_definitions
+
+    swagger["definitions"] = new_definitions
+    print("ouryun.dam.v1.Proxy-spec-listeners-items-servers-items-httpServer-virtualHosts-items-options"
+          "-headerManipulation" in list(swagger["definitions"].keys()))
+
+    paths = swagger["paths"]
+
+    new_paths = {}
+    for path, v in paths.items():
+        if "ouryun" in str(path):
+            new_paths[path] = v
+
+    swagger["paths"] = new_paths
+    json.dump(swagger, open("new-swagger-v2.json", "w+",  encoding="utf-8"))
+
+
+if __name__ == '__main__':
+    parse()
+------------------------------------------------------------
+************************************************************

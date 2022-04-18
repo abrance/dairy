@@ -1,0 +1,551 @@
+> jetbrain
+	>> emacs keymap
+		C-M-g   go to declare 查看函数定义
+	>> 自定义 keymap
+		C-S-UP  go to implements													 查看实现
+		C-M-S-x upload to ...															 上传到远程 deployment
+		C-M-1 	compare with the same responstory history  查看与 git 仓库 diff
+		C-M-2   local file :show history									 文件修改历史
+		C-M-3   compare with deployed to									 查看远程 deployed diff
+
+------------------------------------------------------------
+envoy request 生命周期
+
+      response   16
+  ◄────────────────────────
+                              FilterChain
+1 (req NetFilterMatcher)
+                           2  ┌─────────────┐
+  ──────────────────────►  ──►│   F1(NO M)  │◄───
+                           3  ├─────────────┤
+                           ──►│    F2(M)    │◄───
+                           4  ├─────────────┤ 15    14
+                           ──►│    ...      │◄─── ◄────     HTTPFC
+                           5  ├─────────────┤  6       7 ┌───────────┐
+                           ──►│  HTTPCONMGR ├──────►  ──►│ HF1(NO M) │◄────
+                              └─────────────┘          8 ├───────────┤
+                                                      ──►│   HF2(M)  │◄────
+                                                       9 ├───────────┤  13            ┌──────────┐
+                                                      ──►│    ...    │◄────     12    │          │
+                                                       10├───────────┤  11   ◄────────┤          │
+                                                      ──►│RouteFilter├──────►         │clusterMgr│
+                                                         └───────────┘                │          │
+                                                                                      │          │
+                                                                                      └──────────┘
+
+1 request matcher 传入到 FC
+2 依序执行，matcher 匹配上了 filter 才交给相应的 filter 处理
+3 匹配上了 F2 ，filter 分成两种，ReadFilter WriteFilter，分别在不同生命周期实现了不同的回调函数，如果触发回调则执行，有两种情况 pass 交给后续filter处理 shut 在此处返回
+5 最后一个 网络过滤器是 Http 连接管理器，由此交给HTTP连接管理器处理
+6 经过 http 解码器后，为每个流生成一个 HTTP 过滤器链 HTTPFC
+7 依序执行，matcher 匹配上了 HF 交给 相应的 HF 处理
+8 匹配到了 HF，HTTP过滤器接口有两种 StreamDecoderFilter 带有用于处理请求的回调 StreamEncoderFilter 带有用于响应处理的回调，pass or shut
+10 RouteFilter 处于 http 过滤器链的最后一个，当在 RouteFilter 调用 decodeHeaders() 时， 将完成路由选择并选择一个cluster 连接到上游
+11 将根据 domain 对VH进行匹配，数据流被转发到相应的集群中的上游
+12 上游处理请求返回响应，通过 clusterMgr 返回
+13 逆序通过 HTTP 过滤器链
+14 发到网络过滤器
+15 逆序通过 网络过滤器链
+16 返回响应给下游
+
+注意 filterChain 有 filterChainMatch 做匹配，但是 HttpFilterChain 没有，默认就是一个流会经过所有定义的 httpFilterchain；在 DAM 项目中，采用 id 作为一个标志位，当 id 与插件id匹配时才进行处理，否则直接pass，相当于自己做了一个简单的 httpFilterchainMatcher
+------------------------------------------------------------
+
+> proxy -> listener
+
+> Upstream -> Cluster
+	>> config.cluster.v3.Cluster
+		>>> load_assignment
+			>>>> endpoints
+		>>> upstream sslconfig -> transportsocket
+		>>> lb_alg -> lb_policy
+		>>> health_check -> health_check
+
+
+
+> gloo proxy->listener
+	>> commonHandle
+		>>> name
+		>>> address
+			>>>> socketAddress
+			  ...
+		>>> filterChain
+	>> gloo 插件处理机制
+------------------------------------------------------------
+// run the Listener Plugins
+for _, listenerPlugin := range l.plugins {
+	if err := listenerPlugin.ProcessListener(params, l.listener, out); err != nil {
+		validation.AppendListenerError(l.report,
+			validationapi.ListenerReport_Error_ProcessingError,
+			err.Error())
+	}
+}
+
+
+func (p *plugin) ProcessListener(_ plugins.Params, in *v1.Listener, out *envoy_config_listener_v3.Listener) error {
+	if in.GetOptions().GetPerConnectionBufferLimitBytes().GetValue() != 0 {
+		out.PerConnectionBufferLimitBytes = in.GetOptions().GetPerConnectionBufferLimitBytes()
+	}
+
+	if in.GetOptions().GetSocketOptions() != nil {
+		out.SocketOptions = translateSocketOptions(in.GetOptions().GetSocketOptions())
+	}
+
+	return nil
+}
+------------------------------------------------------------
+
+
+proxy tls plugin upstream upstreamgroup -> lDS rDS cDS
+
+dam 层对象
+************************************************************
+dam proxy -> lDS
+------------------------------------------------------------
+
+------------------------------------------------------------
+
+dam upstream -> cDS
+------------------------------------------------------------
+message Upstream {
+    option (core.solo.io.resource).short_name = "up";
+    option (core.solo.io.resource).plural_name = "upstreams";
+
+    dam.ouryun.TlsClient ssl_configurations = 1;       // -> transportSocket
+    string lb_alg = 2 [(validate.rules).string.pattern = "^[\\x21-\\x7e]+$"]; // -> lb_policy
+    ConnPoll conn_poll = 3; // -> cluster.opts
+    dam.ouryun.HealthCheck health_check = 4;
+    repeated Endpoint endpoints = 5;
+    core.solo.io.Metadata metadata = 7;
+    core.solo.io.NamespacedStatuses namespaced_statuses = 8 [(extproto.skip_hashing) = true];
+}
+
+message Endpoint{
+
+    // 校验：必须是ip地址或者host
+    string address = 1 [(validate.rules).string.address = true];
+
+    // 校验：满足动态端口范围 [1024, 65535]
+    uint32 port = 2 [
+        (validate.rules).uint32 = {
+            gte: 1024, 
+            lte: 65535
+        }
+    ];
+}
+
+message ConnPoll{
+
+    // 限制个连接可以承载的连接个数，0表示不受限制，1表示一个连接服务一个请求后就被关闭，
+    // 也就是禁用连接复用。默认值为0.
+    int64 max_requests_per_connection = 1; // -> max_requests_per_connection
+    // 访问该集群的最大发连接数，默认值-1 (2^32-1)
+    int32 max_connections = 2; // -> 
+
+    // 访问该集群的最大并发请求数，默认值-1。
+    int32 max_requests = 3;
+    
+    // 最大阻塞的请求数，默认值-1。
+    int32 max_pending_requests = 4;
+
+    // 最大重试数，默认值3。
+    // uint32 max_retries = 5;
+}
+
+message UpstreamGroup {
+
+    option (core.solo.io.resource).short_name = "ug";
+    option (core.solo.io.resource).plural_name = "upstream_groups";
+
+    repeated UpstreamWeightClusterList upstream_list = 1;
+
+    // Metadata contains the object metadata for this resource
+    core.solo.io.Metadata metadata = 7;
+
+    // NamespacedStatuses indicates the validation status of this resource.
+    // NamespacedStatuses is read-only by clients, and set by gateway during validation
+    core.solo.io.NamespacedStatuses namespaced_statuses = 8 [(extproto.skip_hashing) = true];
+}
+
+// 上游权值集群列表
+message UpstreamWeightClusterList {
+
+    uint32 weight = 1;
+
+    // 正则表达式（"^[\\x21-\\x7e]{0,}$"）
+    string upstream_name = 2 [(validate.rules).string.pattern = "^[\\x21-\\x7e]{0,}$"];
+
+    headers.options.dam.ouryun.HeaderManipulation header_manipulation  = 3 [(validate.rules).message.required = true];
+}
+------------------------------------------------------------
+************************************************************
+
+xDS 层对象
+************************************************************
+dam upstream -> cDS
+------------------------------------------------------------
+message Cluster {
+  option (udpa.annotations.versioning).previous_message_type = "envoy.api.v2.Cluster";
+  enum DiscoveryType {
+    STATIC = 0;
+    STRICT_DNS = 1;
+    LOGICAL_DNS = 2;
+    EDS = 3;
+    ORIGINAL_DST = 4;
+  }
+
+  enum LbPolicy {
+    reserved 4;
+
+    reserved "ORIGINAL_DST_LB";
+    ROUND_ROBIN = 0;
+    LEAST_REQUEST = 1;
+    RING_HASH = 2;
+    RANDOM = 3;
+    MAGLEV = 5;
+    CLUSTER_PROVIDED = 6;
+    LOAD_BALANCING_POLICY_CONFIG = 7;
+  }
+
+  enum DnsLookupFamily {
+    AUTO = 0;
+    V4_ONLY = 1;
+    V6_ONLY = 2;
+    V4_PREFERRED = 3;
+    ALL = 4;
+  }
+  enum ClusterProtocolSelection {
+    USE_CONFIGURED_PROTOCOL = 0;
+    USE_DOWNSTREAM_PROTOCOL = 1;
+  }
+  message TransportSocketMatch {
+    option (udpa.annotations.versioning).previous_message_type =
+        "envoy.api.v2.Cluster.TransportSocketMatch";
+    string name = 1 [(validate.rules).string = {min_len: 1}];
+    google.protobuf.Struct match = 2;
+    core.v3.TransportSocket transport_socket = 3;
+  }
+
+  message CustomClusterType {
+    option (udpa.annotations.versioning).previous_message_type =
+        "envoy.api.v2.Cluster.CustomClusterType";
+
+    string name = 1 [(validate.rules).string = {min_len: 1}];
+    google.protobuf.Any typed_config = 2;
+  }
+  message EdsClusterConfig {
+    option (udpa.annotations.versioning).previous_message_type =
+        "envoy.api.v2.Cluster.EdsClusterConfig";
+    core.v3.ConfigSource eds_config = 1;
+    string service_name = 2;
+  }
+  message LbSubsetConfig {
+    option (udpa.annotations.versioning).previous_message_type =
+        "envoy.api.v2.Cluster.LbSubsetConfig";
+    enum LbSubsetFallbackPolicy {
+      NO_FALLBACK = 0;
+      ANY_ENDPOINT = 1;
+      DEFAULT_SUBSET = 2;
+    }
+
+    message LbSubsetSelector {
+      option (udpa.annotations.versioning).previous_message_type =
+          "envoy.api.v2.Cluster.LbSubsetConfig.LbSubsetSelector";
+
+      enum LbSubsetSelectorFallbackPolicy {
+        NOT_DEFINED = 0;
+        NO_FALLBACK = 1;
+        ANY_ENDPOINT = 2;
+        DEFAULT_SUBSET = 3;
+        KEYS_SUBSET = 4;
+      }
+
+      repeated string keys = 1;
+
+      bool single_host_per_subset = 4;
+
+      LbSubsetSelectorFallbackPolicy fallback_policy = 2
+          [(validate.rules).enum = {defined_only: true}];
+
+      repeated string fallback_keys_subset = 3;
+    }
+
+    LbSubsetFallbackPolicy fallback_policy = 1 [(validate.rules).enum = {defined_only: true}];
+
+    google.protobuf.Struct default_subset = 2;
+
+    repeated LbSubsetSelector subset_selectors = 3;
+
+    bool locality_weight_aware = 4;
+
+    bool scale_locality_weight = 5;
+
+    bool panic_mode_any = 6;
+
+    bool list_as_any = 7;
+  }
+
+  message SlowStartConfig {
+    google.protobuf.Duration slow_start_window = 1;
+
+    core.v3.RuntimeDouble aggression = 2;
+
+    type.v3.Percent min_weight_percent = 3;
+  }
+
+  message RoundRobinLbConfig {
+    SlowStartConfig slow_start_config = 1;
+  }
+
+  message LeastRequestLbConfig {
+    option (udpa.annotations.versioning).previous_message_type =
+        "envoy.api.v2.Cluster.LeastRequestLbConfig";
+
+    google.protobuf.UInt32Value choice_count = 1 [(validate.rules).uint32 = {gte: 2}];
+
+    core.v3.RuntimeDouble active_request_bias = 2;
+
+    SlowStartConfig slow_start_config = 3;
+  }
+
+  message RingHashLbConfig {
+    option (udpa.annotations.versioning).previous_message_type =
+        "envoy.api.v2.Cluster.RingHashLbConfig";
+
+    enum HashFunction {
+      XX_HASH = 0;
+
+      MURMUR_HASH_2 = 1;
+    }
+
+    reserved 2;
+
+    google.protobuf.UInt64Value minimum_ring_size = 1 [(validate.rules).uint64 = {lte: 8388608}];
+
+    HashFunction hash_function = 3 [(validate.rules).enum = {defined_only: true}];
+
+    google.protobuf.UInt64Value maximum_ring_size = 4 [(validate.rules).uint64 = {lte: 8388608}];
+  }
+
+  message MaglevLbConfig {
+    google.protobuf.UInt64Value table_size = 1 [(validate.rules).uint64 = {lte: 5000011}];
+  }
+
+  message OriginalDstLbConfig {
+    option (udpa.annotations.versioning).previous_message_type =
+        "envoy.api.v2.Cluster.OriginalDstLbConfig";
+
+    bool use_http_header = 1;
+
+    string http_header_name = 2;
+  }
+
+  message CommonLbConfig {
+    option (udpa.annotations.versioning).previous_message_type =
+        "envoy.api.v2.Cluster.CommonLbConfig";
+
+    message ZoneAwareLbConfig {
+      option (udpa.annotations.versioning).previous_message_type =
+          "envoy.api.v2.Cluster.CommonLbConfig.ZoneAwareLbConfig";
+
+      type.v3.Percent routing_enabled = 1;
+
+      google.protobuf.UInt64Value min_cluster_size = 2;
+
+      bool fail_traffic_on_panic = 3;
+    }
+
+    message LocalityWeightedLbConfig {
+      option (udpa.annotations.versioning).previous_message_type =
+          "envoy.api.v2.Cluster.CommonLbConfig.LocalityWeightedLbConfig";
+    }
+
+    message ConsistentHashingLbConfig {
+      option (udpa.annotations.versioning).previous_message_type =
+          "envoy.api.v2.Cluster.CommonLbConfig.ConsistentHashingLbConfig";
+
+      bool use_hostname_for_hashing = 1;
+
+      google.protobuf.UInt32Value hash_balance_factor = 2 [(validate.rules).uint32 = {gte: 100}];
+    }
+
+    type.v3.Percent healthy_panic_threshold = 1;
+
+    oneof locality_config_specifier {
+      ZoneAwareLbConfig zone_aware_lb_config = 2;
+
+      LocalityWeightedLbConfig locality_weighted_lb_config = 3;
+    }
+
+    google.protobuf.Duration update_merge_window = 4;
+
+    bool ignore_new_hosts_until_first_hc = 5;
+
+    bool close_connections_on_host_set_change = 6;
+
+    ConsistentHashingLbConfig consistent_hashing_lb_config = 7;
+
+    core.v3.HealthStatusSet override_host_status = 8;
+  }
+
+  message RefreshRate {
+    option (udpa.annotations.versioning).previous_message_type = "envoy.api.v2.Cluster.RefreshRate";
+
+    google.protobuf.Duration base_interval = 1 [(validate.rules).duration = {
+      required: true
+      gt {nanos: 1000000}
+    }];
+
+    google.protobuf.Duration max_interval = 2 [(validate.rules).duration = {gt {nanos: 1000000}}];
+  }
+
+  message PreconnectPolicy {
+    google.protobuf.DoubleValue per_upstream_preconnect_ratio = 1
+        [(validate.rules).double = {lte: 3.0 gte: 1.0}];
+
+    google.protobuf.DoubleValue predictive_preconnect_ratio = 2
+        [(validate.rules).double = {lte: 3.0 gte: 1.0}];
+  }
+
+  reserved 12, 15, 7, 11, 35;
+
+  reserved "hosts", "tls_context", "extension_protocol_options";
+
+  repeated TransportSocketMatch transport_socket_matches = 43;
+
+  string name = 1 [(validate.rules).string = {min_len: 1}];
+
+  string alt_stat_name = 28 [(udpa.annotations.field_migrate).rename = "observability_name"];
+
+  oneof cluster_discovery_type {
+    DiscoveryType type = 2 [(validate.rules).enum = {defined_only: true}];
+
+    CustomClusterType cluster_type = 38;
+  }
+
+  EdsClusterConfig eds_cluster_config = 3;
+
+  google.protobuf.Duration connect_timeout = 4 [(validate.rules).duration = {gt {}}];
+
+  google.protobuf.UInt32Value per_connection_buffer_limit_bytes = 5
+      [(udpa.annotations.security).configure_for_untrusted_upstream = true];
+
+  LbPolicy lb_policy = 6 [(validate.rules).enum = {defined_only: true}];
+
+  endpoint.v3.ClusterLoadAssignment load_assignment = 33;
+
+  repeated core.v3.HealthCheck health_checks = 8;
+
+  google.protobuf.UInt32Value max_requests_per_connection = 9
+      [deprecated = true, (envoy.annotations.deprecated_at_minor_version) = "3.0"];
+
+  CircuitBreakers circuit_breakers = 10;
+
+  core.v3.UpstreamHttpProtocolOptions upstream_http_protocol_options = 46
+      [deprecated = true, (envoy.annotations.deprecated_at_minor_version) = "3.0"];
+
+  core.v3.HttpProtocolOptions common_http_protocol_options = 29
+      [deprecated = true, (envoy.annotations.deprecated_at_minor_version) = "3.0"];
+
+  core.v3.Http1ProtocolOptions http_protocol_options = 13
+      [deprecated = true, (envoy.annotations.deprecated_at_minor_version) = "3.0"];
+
+  core.v3.Http2ProtocolOptions http2_protocol_options = 14 [
+    deprecated = true,
+    (udpa.annotations.security).configure_for_untrusted_upstream = true,
+    (envoy.annotations.deprecated_at_minor_version) = "3.0"
+  ];
+
+  map<string, google.protobuf.Any> typed_extension_protocol_options = 36;
+
+  google.protobuf.Duration dns_refresh_rate = 16
+      [(validate.rules).duration = {gt {nanos: 1000000}}];
+
+  RefreshRate dns_failure_refresh_rate = 44;
+
+  bool respect_dns_ttl = 39;
+
+  DnsLookupFamily dns_lookup_family = 17 [(validate.rules).enum = {defined_only: true}];
+
+  repeated core.v3.Address dns_resolvers = 18
+      [deprecated = true, (envoy.annotations.deprecated_at_minor_version) = "3.0"];
+
+  bool use_tcp_for_dns_lookups = 45
+      [deprecated = true, (envoy.annotations.deprecated_at_minor_version) = "3.0"];
+
+  core.v3.DnsResolutionConfig dns_resolution_config = 53
+      [deprecated = true, (envoy.annotations.deprecated_at_minor_version) = "3.0"];
+
+  core.v3.TypedExtensionConfig typed_dns_resolver_config = 55;
+
+  google.protobuf.BoolValue wait_for_warm_on_init = 54;
+
+  OutlierDetection outlier_detection = 19;
+
+  google.protobuf.Duration cleanup_interval = 20 [(validate.rules).duration = {gt {}}];
+
+  core.v3.BindConfig upstream_bind_config = 21;
+
+  LbSubsetConfig lb_subset_config = 22;
+
+  oneof lb_config {
+    RingHashLbConfig ring_hash_lb_config = 23;
+
+    MaglevLbConfig maglev_lb_config = 52;
+
+    OriginalDstLbConfig original_dst_lb_config = 34;
+
+    LeastRequestLbConfig least_request_lb_config = 37;
+
+    RoundRobinLbConfig round_robin_lb_config = 56;
+  }
+
+  CommonLbConfig common_lb_config = 27;
+
+  core.v3.TransportSocket transport_socket = 24;
+
+  core.v3.Metadata metadata = 25;
+
+  ClusterProtocolSelection protocol_selection = 26
+      [deprecated = true, (envoy.annotations.deprecated_at_minor_version) = "3.0"];
+
+  UpstreamConnectionOptions upstream_connection_options = 30;
+
+  bool close_connections_on_host_health_failure = 31;
+
+  bool ignore_health_on_host_removal = 32;
+
+  repeated Filter filters = 40;
+
+  LoadBalancingPolicy load_balancing_policy = 41;
+
+  core.v3.ConfigSource lrs_server = 42;
+
+  bool track_timeout_budgets = 47
+      [deprecated = true, (envoy.annotations.deprecated_at_minor_version) = "3.0"];
+
+  core.v3.TypedExtensionConfig upstream_config = 48;
+
+  TrackClusterStats track_cluster_stats = 49;
+
+  PreconnectPolicy preconnect_policy = 50;
+
+  bool connection_pool_per_downstream_connection = 51;
+}
+
+message TransportSocket {
+  option (udpa.annotations.versioning).previous_message_type = "envoy.api.v2.core.TransportSocket";
+  reserved 2;
+  reserved "config";
+  string name = 1 [(validate.rules).string = {min_len: 1}];
+  oneof config_type {        // <- 
+    google.protobuf.Any typed_config = 3;
+  }
+}
+
+
+------------------------------------------------------------
+************************************************************
+
+
+

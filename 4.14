@@ -1,0 +1,3 @@
+> mode none transportsocket raw
+> simple 服务端验证
+> 双向 客户端证书需要验证

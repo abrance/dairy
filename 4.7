@@ -1,0 +1,182 @@
+> syncEnvoy(ctx Context, snap ApiSnapshot, allReports ResourceReports) error 转换入口
+	>> Accept() report  report导入
+	>> 遍历 snap.proxyList 
+	>> Translate(params Params, proxy Proxy) 转换逻辑
+	>> validateReport(reports Reports)   校验 report 如果有错则丢弃
+	>> computeProxyKey 获取proxy key 在 ng name中
+	>> xdsCache.SetSnapshot(key ProxyKey, snapshot EnvoySnapshot) error  保存snapshot 在 xdscache中 ；proxy 是转换一个同步一个
+
+> Translate(params Params, proxy Proxy) （Snapshot,  reports Reports,  error）  dam 层转换逻辑
+	>> computeCluters
+	>> computeRouteconfigurations
+	>> computeListeners
+	>> generateXdssnapshot 根据四种资源组装 xdssnapshot
+
+> dam 层对象转换设计
+	>> 概述
+		dam 层对象为 Proxy plugin pluginInstance tlsCert tlsCertValidation upstream upstreamGroup 需要转换为 xDS 的 lDS rDS cDS 对象
+	>> 转换代码设计
+		主动分为三层对应三个对象lDS rDS cDS 的生成
+************************************************************
+Proxy upstream upstreamGroup -> cDS
+------------------------------------------------------------
+> ComputeClusters(params Params, proxy Proxy, reports Reports) []Cluster 为每个 proxy 计算 cDS
+	>> computeClusterForUpstream(params Params, proxy Proxy, reports Reports) Cluster  为 upstream 计算 cluster
+		>>> validateUpstream(upstream Upstream, reports Reports)   校验 upstream endpoint 是否存在??? 需要校验什么
+		>>> computeCircuitbreakers(upstream Upstream, reports Reports) []Circuitbreaker 计算并组装 (Connpoll ->) circuitbreakers 
+		>>> computeLoadAssignment(upstream Upstream, reports Reports) LoadAssignment 计算并组装 loadAssignment  lbEndpoint (静态导入)  (外层)HealthcheckConfig lb_alg -> lb_policy sslconfig -> transportsocket
+		>>> computeCDSTls(upstream Upstream, reports Reports) []transportSocket 双端的证书?
+	>> computeClusterForUpstreamGroup(params Params, proxy Proxy, reports Reports) Cluster 为upstreamGroup 计算 cluster
+		>>> validateUpstreamGroup(upstreamGroup UpstreamGroup, reports Reports)  校验 upstreamGroup
+		>>> computeCircuitbreakersForUpstreamGroup(upstreamGroup UpstreamGroup, reports Reports) CircuitBreakers  计算 circuitbreakers ，可以复用 computecircuitbreakers代码
+		>>> computeLoadAssignmentForUpstreamGroup(upstreamGroup UpstreamGroup, reports Reports) []LoadAssignment 计算 LoadAssignment ，复用 computeLoadassignment 代码
+		>>> computeCDSTlsForUpstreamGroup(upstreamGroup UpstreamGroup, reports Reports) []transportSocket 计算 transportSocket 复用 computecdstls
+------------------------------------------------------------
+
+Proxy httpServer.VHList VH Route -> rDS
+------------------------------------------------------------
+> computeRouteconfigurations(params Params, proxy Proxy, reports Reports) []RouteConfiguration 计算一个 proxy rds
+	>> ComputeRouteConfiguration(params Params, proxy Proxy, reports Reports) RouteConfiguration  为单个 httpserver 计算出一个 RouteConfiguration
+		>>> computeVirtualHosts(params Params, proxy Proxy, reports Reports) []v3.VirtualHost  VHOptions 里面所有字段都在 VH 中，只需要填充 VHList 即可，计算并组装 envoy VHList 
+			>>>> ValidateVirtualHostDomains(vhList VirtualHostList, reports Reports)  校验 VHList 的 domain 是否重叠
+			>>>> computeVirtualHost(vh VirtualHost, reports Reports) v3.VirtualHost 计算VH 的插件配置，组装 VH name domains Routes
+				>>>>> ComputeEnvoyRoutes(vh VirtualHost, reports Reports) []v3.Route 组装 RouteList
+					>>>>>> ComputeEnvoyRoute(route Route, reports Reports) []v3.Route  route 比较特殊，其他的对象为一一对应，而 route - v3.Route是 1对多关系，因为 envoy route match 是单个对象，而 dam route 是多个match组成的，所以 matchers 的长度决定了最后生成 route 的数量，route 可以重名
+						>>>>>>> damMatcherToEnvoyMatcher(matchers MatcherList, reports Reports) []v3.Matcher  dam 层 matcher -> envoy Matcher ; 对 route 进行拆分，因为 envoy route 匹配是单独的，而 dam route 匹配是聚合的; name
+					>>>>>> setAction(ac Action, reports Reports) v3.Action 为生成的每个 route 创建 Action
+					>>>>>> setHeader(header HeaderManipulation, reports Reports) v3.Headermanipulation  为route 组装 header 相关字段
+					>>>>>> computeRouteConfig()  计算 route 级别插件配置，以供 HttpFilterChain 使用 ???
+				>>>>> computeVHFilterConfigChain  计算 VH 级别插件配置 ，以供 HttpFilterChain使用 ???
+------------------------------------------------------------
+
+Proxy listener server httpserveroptions -> lDS
+------------------------------------------------------------
+> computeListeners(params Params, proxy Proxy, reports Reports) []v3.Listener  为一个 proxy 计算 lDS
+	>> computeListener(params Params, proxy Proxy, reports Reports) []v3.Listener 计算并组装 listener
+		>>> computeFilterChains(listener Listener, reports Reports) []FilterChain 为单个 listener 计算 FCList，因为一个 listener 对应多个 Server，所以 v3.Listener 下有多个 FC
+			>>>> computeFilterChain(server Server, reports Reports) FilterChain 一个server 对应一个 FC，为单个 server 计算 FC，因为 一期没有网络过滤器，所以一个 FC下只有一个 filter 为 hcm 类型
+				>>>>> computeFilterChainWithSSL(server Server, reports Reports) FilterChain 为配置 ssl 的 server 计算 FC
+					>>>>>> computeTransportSocket(sslconfig SSLConfig, reports Reports) TransportSocket 计算 用于指定 ssl 的 transportSocket
+					>>>>>> computeFilter(server Server, report Reports) []Filter 这里定义为数组是为了后期扩展，这里抽象 tcpServer 和 httpServer，到后面有网络层过滤器，会成成多个 filter，暂时将返回一个 Filter 数组，但是里面只有一个 hcm 对象
+						>>>>>>> computeHttpConnectionManager(httpServer HttpServer, reports Reports) HttpConnectionManager 为 httpServer 计算 hcm hcm配置用算法实现 filter typed_config 使用hcm , HttpServerOptions HttpConnectionManagerSettings ->hcm下的options; HttpServeroptions grpc_web -> hcm.httpfilter.typed_config ; HttpServeroptions healthcheck -> hcm.httpfilter.typed_config ; 其他的对号入座
+							>>>>>>>> computeHCMRDS(httpServer HttpServer, reports Reports) v3.rdsName 计算 hcm rds 字段 这个由自己人为规定一个生成 rdsname 算法
+							>>>>>>>> computeHttpFilters(httpServer HttpServer, reports Reports) []HttpFilter  为 hcm 计算出 httpfilterchain (核心算法); 根据插件的配置，进行计算（根据prior值进行排序，并生成一系列 httpfilter）
+				>>>>> conputeFilterChainWithoutSSL(server Server, reports Reports) FilterChain 为没有 ssl 的 server 计算 FC
+					>>>>>> 复用以上代码
+------------------------------------------------------------
+      filters:
+      # The HTTP connection manager is the only network filter.
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: ingress_http
+          use_remote_address: true
+          http2_protocol_options:
+            max_concurrent_streams: 100
+          # File system based access logging.
+          access_log:
+          - name: envoy.access_loggers.file
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.access_loggers.file.v3.FileAccessLog
+              path: "/var/log/envoy/access.log"
+          # The route table, mapping /foo to some_service.
+          route_config:    # route_config 是静态写法 rDS 写法为 rDS
+            name: local_route
+            virtual_hosts:
+            - name: local_service
+              domains: ["acme.com"]
+              routes:
+              - match:
+                  path: "/foo"
+                route:
+                  cluster: some_service
+          # CustomFilter and the HTTP router filter are the HTTP filter chain.
+          http_filters:
+          # - name: some.customer.filter
+          - name: envoy.filters.http.router
+------------------------------------------------------------
+
+------------------------------------------------------------
+************************************************************
+
+
+> 插件的生命周期
+	>> 插件开发
+		>>> js 模块开发
+		>>> go 模块开发
+		>>> c++ 模块开发
+		>>> yaml 定义
+	>> 插件的导入
+	>> 插件实例生成
+	>> 插件配置的生命周期
+		>>> 插件全局配置
+			>>>> web 层
+				>>>>> 插件 js 模块 提供 生成 插件全局配置的工具 -> web_typed_conf
+			>>>> gateway 层
+				>>>>> 插件 go 模块 提供 将 web_typed_conf -> gateway_typed_conf (这里将绑定了全局配置的VS对应的 VH Route 都加上了 typedconfig)
+			>>>> dam 层
+				>>>>> 将拥有全局配置的插件计算出来，放入到 http_filter.typedconfig 内 
+			>>>> envoy 执行流程
+				>>>>> http 过滤链初始化列举的所有 httpfilter ，拥有全局配置的 httpfilter 这里直接加载了全局配置，在 http 请求流到达绑定了此插件的 VH 时，发现 VH.typedconfig 有相应的配置，则执行相应的操作
+			
+	>> 插件执行
+	>> 插件实例卸载
+	>> 插件卸载
+	>> 插件升级 ?
+
+> DAM 项目中的 SSL 配置
+	>> Server 下 TlsServer
+		>>> 这里 server 类似 nginx server 的概念
+			tls 服务端配置，tls 配置到了 GW 上
+	>> Upstream 下 SSL TlsClient 类型
+		>>> 这里 SSL 作为 客户端证书，与相应的 Upstream 进行双向认证
+			
+> review 问题
+	>> snapshot 有问题，新建了一个 snapshot ，可是 validatesyncer 里其实有一个快照
+
+k config set-credentials gwreader \
+    --client-certificate=/opt/k8s/work/gwreader.pem \
+    --client-key=/opt/k8s/work/gwreader-key.pem \
+    --embed-certs=true \
+    --kubeconfig=config
+
+k config set-context default \
+    --cluster=kubernetes \
+    --user=gwreader \
+    --kubeconfig=config
+
+
+apiVersion: v1
+items:
+- apiVersion: rbac.authorization.k8s.io/v1
+  kind: Role
+  metadata:
+    creationTimestamp: "2022-04-08T07:47:00Z"
+    name: gwreader
+    namespace: default
+    resourceVersion: "2570766"
+    uid: 8dee5513-078f-4e08-a69f-c73450ec6c2b
+  rules:
+  - apiGroups: [""]
+    resources:
+    - gateways
+    verbs:
+    - get
+    - list
+    - watch
+kind: List
+metadata:
+  resourceVersion: ""
+  selfLink: ""
+
+> 无法通过 创建 context 进行 role-admission 准入
+
+> 流程
+	>> k8s 用户认证机制  通过指定 ssl 证书进行身份认证，身份信息保存于 证书签发时的 CN 字段
+	
+	>> k8s 准入控制
+
+
+curl cert --cert ./server.pem --key ./server-key.pem --cacert ./ca.pem -v -XGET -H "Accept:application/json,*/*" -H "User-Agent:kubectl/2.0.13(linux/amd64)"  https://192.192.100.59:6443/apis/gateway.ouryun/v1/namespaces/default/gateways
+
+curl cert --cert ./jane.pem --key ./jane-key.pem --cacert ./ca.pem -v -XGET -H "Accept:application/json,*/*" -H "User-Agent:kubectl/2.0.13(linux/amd64)"  https://192.192.100.59:6443/apis/gateway.ouryun/v1/namespaces/default/gateways

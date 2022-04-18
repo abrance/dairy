@@ -1,0 +1,29 @@
+> TODO
+	dam 层转换的文档
+	测试 目标：使用 json 来测 最后要能根据页面的配置生成对应 envoy 配置
+	日志（异常处理机制）
+	插件的文档
+
+> hack
+	>> 概述
+		使用一个工具进行配置自动生成 cobra 做
+	>> deploy
+		>>> 自动生成 settings.yaml  等配置文件
+
+> DAM 测试设计
+	>> 测试点
+		>>> 单元测试
+			>>>> 放在各个模块下
+				>>>>> 主要业务单元测试
+					>>>>>> translator package
+						>>>>>>> translator
+						>>>>>>> listener
+						>>>>>>> route_config
+						>>>>>>> clusters
+				>>>>> 非主要业务单元测试
+					>>>>>> syncer package
+						>>>>>>> 
+		>>> 功能测试
+			>>>> 放在项目路径 test 目录下
+		>>> 基准测试
+			>>>> 放在项目路径test 目录下

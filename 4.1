@@ -1,0 +1,73 @@
+> TODO
+	>> solo-kit 重新生成
+	>> webhook 改引用对象
+	>> review
+
+> 启动失败
+	>> 报错
+------------------------------------------------------------
+proto: file "envoy/api/v2/discovery.proto" has a name conflict over envoy.api.v2.Resource
+        previously from: "github.com/solo-io/solo-kit/pkg/api/external/envoy/api/v2"
+        currently from:  "github.com/envoyproxy/go-control-plane/envoy/api/v2"
+See https://developers.google.com/protocol-buffers/docs/reference/go/faq#namespace-conflict
+------------------------------------------------------------
+	>> 解决
+	  go build -ldflags "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn"
+
+
+> 创建客户端 register 发生了什么
+// 工厂
+ConfigFactoryForSettings(params ConfigFactoryParams, resourceCrd crd.Crd) (factory.ResourceClientFactory, error)
+
+// 创建客户端
+NewResourceClient(ctx context.Context, params NewResourceClientParams) (clients.ResourceClient, error)
+
+// 创建客户端
+newResourceClient(ctx, f, params)
+
+// 生成的客户端
+&ResourceClient{
+		crd:                       crd,
+		crdClientset:              clientset,
+		resourceName:              resourceName,
+		resourceType:              resourceType,
+		sharedCache:               sharedCache,
+		namespaceWhitelist:        namespaceWhitelist,
+		resyncPeriod:              resyncPeriod,
+		resourceStatusUnmarshaler: resourceStatusUnmarshaler,
+}
+
+
+KubeResourceClientFactory 传入了SharedCache 
+
+// Register
+// Registers the client with the shared cache. The cache will create a dedicated informer to list and watch resources of kind rc.Kind() in the namespaces given in rc.namespaceWhitelist.
+// Register 其实是为 注册的客户端 在 shareCache 中注册了一个 informer ，启动时创建一个 k8s controller，controller 会将客户端的更新通知到工厂的 watch
+The ResourceClientSharedInformerFactory creates a SharedIndexInformer for each of the clients that register with it and, when started, creates a kubernetes controller that distributes notifications for changes to the watches that have been added to the factory. All direct operations on the ResourceClientSharedInformerFactory are synchronized.
+
+WatchOpts: clients.WatchOpts{
+	Ctx:         ctx,
+	RefreshRate: refreshRate,
+}
+
+// snapshot 本质上将每个客户端建立了 watch 管道，如果里面客户端资源发生变化，则snapshot 接收到变化，进而调用 syncer 的sync
+virtualServiceNamespacesChan, virtualServiceErrs, err := c.virtualService.Watch(namespace, opts)
+
+// shareCache
+func NewKubeCache(ctx context.Context) SharedCache {
+	return &ResourceClientSharedInformerFactory{
+		ctx:           ctx,
+		defaultResync: 12 * time.Hour,
+		registry:      newInformerRegistry(),
+		watchTimeout:  time.Second,
+	}
+}
+
+// 客户端
+rcFactory.NewResourceClient(ctx, factory.NewResourceClientParams{
+  ResourceType: &Plugin{},
+	Token:        token,
+}
+
+// 创建客户端后需要 Register
+

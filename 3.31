@@ -1,0 +1,16 @@
+> TODO
+	>> dam 代码梳理
+
+> xDS 服务器
+	>> ControlPlane
+		>>> grpcserver
+		>>> xdsserver
+
+
+
+> xds.SetupEnvoyXds(opts.ControlPlane.GrpcServer, opts.ControlPlane.XDSServer, opts.ControlPlane.SnapshotCache)
+> translationSync := syncer.NewTranslatorSyncer(t, opts.ControlPlane.SnapshotCache, xdsHasher, xdsSanitizer, rpt, opts.DevMode, syncerExtensions, opts.Settings)
+
+> rpc.Register 函数调用会将对象类型中所有满足rpc 规则的对象方法注册为 rpc 函数， 所有注册的方法会放在 "HelloService" 服务空间之下，然后我们建立一个唯一的 tcp 连接，并通过 rpc.ServeConn 函数在该 tcp 连接上位对方提供 rpc 服务
+
+

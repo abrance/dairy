@@ -1,0 +1,49 @@
+> 异常处理设计
+	>> 参考 gloo
+		>>> makeReport 为一个proxy 组装一个 proxyReport
+			>>>> listener 级 report 根据 listeners 长度,进行 listener 级 report 的组装
+			>>>> 根据 listener 类型的不同组装下面 VHReports
+				>>>>> VHReport 组装 VHReport
+				>>>>> 组装 RouteReport
+
+> hack
+	>> 概述
+		使用一个工具进行配置自动生成 cobra 做
+	>> deploy
+		>>> 自动生成 settings.yaml  等配置文件
+
+> DAM 测试设计
+	>> 测试点
+		>>> 单元测试
+			>>>> 放在各个模块下
+				>>>>> 主要业务单元测试
+					>>>>>> translator package
+						>>>>>>> translator
+						>>>>>>> listener
+						>>>>>>> route_config
+						>>>>>>> clusters
+				>>>>> 非主要业务单元测试
+					>>>>>> syncer package
+						>>>>>>> 
+		>>> 功能测试
+			>>>> 放在项目路径 test 目录下
+		>>> 基准测试
+			>>>> 放在项目路径test 目录下
+
+
+
+> jetbrain
+	>> C-`  switch some-mode
+		mode
+		>>> present mode    字体变大
+		>>> distract        将侧边栏之类的隐藏
+		>>> fullscreen      全屏
+		>>> zen mode        直接进入 2 + 3 模式
+
+proxy -> xDS {cDS rDS lDS}
+
+rDS
+name:"local-1024-0.0.0.0-1024-0"  virtual_hosts:{routes:{name:"1"  match:{prefix:"11"  case_sensitive:{value:true}  headers:{name:"11"  present_match:true}  headers:{name:"111.222.333....444"}}  direct_response:{status:100  body:{inline_string:"....hgfk"}}  metadata:{typed_filter_metadata:{key:"route_id"  value:{value:"80941464"}}}  request_headers_to_add:{header:{key:"1"  value:"1"}}  request_headers_to_remove:"1"  response_headers_to_add:{header:{key:"1"  value:"1"}}  response_headers_to_remove:"1"}  routes:{name:"11"  match:{prefix:"1111"  case_sensitive:{value:true}  headers:{name:"111"  invert_match:true}}  direct_response:{status:100  body:{inline_string:"111"}}  metadata:{typed_filter_metadata:{key:"route_id"  value:{value:"71582585"}}}  request_headers_to_add:{header:{key:"11"  value:"11"}}  request_headers_to_remove:"1513"  response_headers_to_add:{header:{key:"13513"  value:"315"}}  response_headers_to_remove:"13513"}  routes:{name:"122"  match:{prefix:"22sss11....f"  case_sensitive:{}  headers:{name:"111"  present_match:true}  headers:{name:"111...2.344....6"}}  direct_response:{status:100  body:{inline_string:"7"}}  metadata:{typed_filter_metadata:{key:"route_id"  value:{value:"60682401"}}}  request_headers_to_add:{header:{key:"1"  value:"2"}}  request_headers_to_remove:"3"  response_headers_to_add:{header:{key:"4"  value:"5"}}  response_headers_to_remove:"6"}}
+
+lDS
+computeListeners: name:"local-1024"  address:{socket_address:{address:"0.0.0.0"  port_value:1024  ipv4_compat:true}}  filter_chains:{filter_chain_match:{server_names:"www.ouryun.com.cn"}  filters:{name:"envoy.filters.network.http_connection_manager"  typed_config:{[type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager]:{rds:{config_source:{ads:{}  resource_api_version:V3}  route_config_name:"local-1024-0.0.0.0-1024-0"}}}}  transport_socket:{name:"envoy.transport_sockets.tls"  typed_config:{[type.googleapis.com/envoy.extensions.transport_sockets.raw_buffer.v3.RawBuffer]:{}}}}  per_connection_buffer_limit_bytes:{value:1}  listener_filters:{}  bind_to_port:{}
