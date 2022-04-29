@@ -1,0 +1,16 @@
+> curl 用法
+	>> 参数
+	  -X $method  指定请求方法  e.g. GET|POST|PATCH  
+		--data $json_data 指定post 请求体   e.g. --data '{"username":"xyz","password":"xyz"}' 
+		--cacert $ca_crt_path 指定ca证书路径（非证书签名请求）
+		--cert $client_crt_path 指定客户端证书 用于双向认证
+		--key $client_crt_path 指定客户端私钥 用户双向认证
+		-v 打印更详细
+		-H "" 加上头
+		-k 不验证服务端证书
+		-w $format  自定义输出到终端的格式 有很多相应的变量 http_code 变量使用方法是 %{$var_name} 这样  如 -w "\n%{http_code}\n"
+		-o /dev/null  屏蔽原有消息
+		-s 静默输出
+	>> 场景
+		>>> 只获取 http 状态码
+		  curl -o /dev/null -s -w %{http_code} $url

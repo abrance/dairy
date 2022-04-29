@@ -1,0 +1,146 @@
+> shell exit 语句
+************************************************************
+history
+------------------------------------------------------------
+# 进到 /ip 目录，如果执行成功，则下一行，如果失败，执行 echo b 并 退出此程序
+cd /ip || (echo "b" && exit 1)
+# 但是 执行脚本后 echo $? 不是 1，其实应该使用 {} 包裹 exit ，exit 使用 () 是有问题的
+# https://unix.stackexchange.com/questions/148479/condition-command-exit
+# cd /ip || { echo "b" && exit 1 }
+------------------------------------------------------------
+************************************************************
+
+> shell set -ex
+	https://www.peterbe.com/plog/set-ex
+	>> set -e
+		>>> 任何一行失败会导致会导致程序退出
+	>> set -x
+		>>> 会打印被执行的命令的一点细节
+
+> jetbrains project 栏
+	>> M-1 打开或关闭 project 栏
+
+
+> shell 数值计算
+************************************************************
+计算输入参数长度 -1 
+------------------------------------------------------------
+#!/bin/bash
+VIP=$1
+Gfd=$[ $# - 1 ]
+echo $gfd
+------------------------------------------------------------
+************************************************************
+
+> dashboard 分页
+	>> 使用 clientgo restClient 把一个 crd 中所有数据查出来，然后根据定义的偏移量进行分页返回给前端
+
+				
+> kube-apiserver: unable to sync kubernetes service: Endpoints "kubernetes" is invalid, may not be in the loopback range
+	https://github.com/rancher/rke/issues/1981
+	>> It seems that you cannot start kube-api-server on 127.0.0.0/8 ip address. You need to assign a private ip (192.168.0.2 for example) to your host.
+	>> apiserver 直接使用 127.0.0.1 会报 ERROR
+
+
+> docker exec 一次性执行多个命令
+------------------------------------------------------------
+# -c 可以支持多行
+docker exec myenvoy bash -c "cd /opt/bin && sh start "
+------------------------------------------------------------
+
+		
+> sed 用法
+	>>
+	>> 场景
+		>>> 替换匹配的字符串
+		  echo "    caBundle: LS0tLS1CRUd" | sed '/s/\(.*\)caBundle: //g'  将所有 caBundle 后面的 LS... 提取出来
+
+> kubectl 批量删除资源
+	k get up | awk '{print $1}' | xargs kubectl delete up
+
+
+> debian10 初始化 apt source.list
+------------------------------------------------------------
+# 确认 source.list 不要了
+cat << EOF > /etc/apt/source.list
+deb http://mirrors.ustc.edu.cn/debian buster main contrib non-free
+EOF
+# 这里先使用 http 源 下载 ca 组件
+apt update && apt upgrade
+apt install apt-transport-https ca-certificates
+
+cat << EOF >> /etc/apt/source.list
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bullseye-backports main contrib non-free
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ buster main contrib non-free
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ buster-updates main contrib non-free
+deb https://mirrors.tuna.tsinghua.edu.cn/debian/ buster-backports main contrib non-free
+deb https://mirrors.tuna.tsinghua.edu.cn/debian-security buster/updates main contrib non-free
+EOF
+apt update && apt upgrade
+------------------------------------------------------------
+
+> debian10 安装 emacs-26
+------------------------------------------------------------
+#!/bin/bash
+
+echo "install emacs ..."
+apt install wget gcc libncurses5-dev clang git -y
+
+if [ ! -d "/opt/software" ]
+  then
+    mkdir -p /opt/software
+fi
+
+cd /opt/software
+
+wget https://mirrors.sjtug.sjtu.edu.cn/gnu/emacs/emacs-26.3.tar.xz --no-check-certificate
+xz -d emacs-26.3.tar.xz  # 解压
+tar -xvf emacs-26.3.tar
+cd emacs-26.3  # 进入安装目录
+# 配置参数 提示什么就加上什么参数
+./configure --with-x-toolkit=no  --with-gif=no --with-tiff=no  --with-gnutls=no  --with-jpeg=no  --with-png=no
+make && make install
+# 安装完毕
+# 加载常用配置
+mkdir settings
+git clone https://gitee.com/abrance/emacs_set.git settings
+cd settings
+mkdir -p ~/.emacs.d/elpa
+cp --force init.el ~/.emacs.d
+cp -r --force --parents elpa ~/.emacs.d
+echo "install end"
+------------------------------------------------------------
+
+> client-go 创建生成crd 客户端的流程
+	>> 使用 dynamicClient 可以获取 crd 中资源的 json 类型，然后使用 crd 的 go 类型，进行反序列化即可
+
+> docker 已启动的容器添加端口映射
+	>> docker commit $src_contain $des_contain #  先提交现有容器的一个镜像
+	>> docker run -itd  -p 10000-10010:10000-10010  --name myenvoy envoy1  # 添加端口映射
+
+> docker 导出和加载镜像文件
+------------------------------------------------------------
+# 导出镜像为镜像文件
+docker save -o $desc_path $image_name
+# 导入镜像文件为镜像
+docker load < $image_path
+------------------------------------------------------------
+
+> docker 启动 envoy 镜像
+------------------------------------------------------------
+docker run -itd -p 9902:9902 -p 11000-11030:11000-11030 --name myenvoy envoy1 /bin/bash
+------------------------------------------------------------
+
+> emacs man 查看
+	M-x woman RET  查看相应的即可
+
+> tcpdump 安装和用法
+	https://zhuanlan.zhihu.com/p/96143656
+	>> 参数
+		-i $网卡
+		-s 0 指定不限缓冲区
+		src       数据源相关信息
+		  host $hostname_or_ip   指定 源 的主机为 hostname 或 ip 的包
+			port $port 指定端口 
+	>> 解决 http 包一直收不全（最开始的几个没收到或没显示出来），使用 block 状态一直接收，可以收全
+	tcpdump -i ens192 tcp dst port 9977

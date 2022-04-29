@@ -1,0 +1,7 @@
+> docker 安装 debian10
+------------------------------------------------------------
+docker pull waffleimage/debian10
+docker run -itd waffleimage/debian10 /bin/bash
+docker start $contain_id
+------------------------------------------------------------
+
