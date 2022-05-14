@@ -1,0 +1,27 @@
+> 安装部署 nodejs
+************************************************************
+history
+------------------------------------------------------------
+wget https://npm.taobao.org/mirrors/node/v10.14.1/node-v10.14.1-linux-x64.tar.gz
+tar xzvf node-v10.14.1-linux-x64.tar.gz
+mv node-v10.14.1-linux-x64 /usr/local/node
+cat << EOF >> /etc/profile
+export NODE_HOME=/usr/local/node
+export PATH=\$PATH:\$NODE_HOME/bin
+EOF
+source /etc/profile
+npm i
+npm run build:prod
+------------------------------------------------------------
+************************************************************
+
+> http HEAD 请求
+	>> HEAD方法跟GET方法相同，只不过服务器响应时不会返回消息体。一个HEAD请求的响应中，HTTP头中包含的元信息应该和一个GET请求的响应消息相同。这种方法可以用来获取请求中隐含的元信息，而不用传输实体本身。也经常用来测试超链接的有效性、可用性和最近的修改。
+> http connect 请求
+	>> CONNECT这个方法的作用就是把服务器作为跳板，让服务器代替用户去访问其它网页，之后把数据原原本本的返回给用户。这样用户就可以访问到一些只有服务器上才能访问到的网站了，这就是HTTP代理。和下面几个字段有关
+------------------------------------------------------------
+CONNECT www.web-tinker.com:80 HTTP/1.1
+Host: www.web-tinker.com:80
+Proxy-Connection: Keep-Alive
+Proxy-Authorization: Basic *
+------------------------------------------------------------

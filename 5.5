@@ -1,0 +1,61 @@
+项目迁移进度
+> dam              1   xiaoy
+> dam-plugin-sdk   1   宋燚
+> device           1   思华
+> webserver        1   众星
+> envoy            0 周宇自己上传新的 envoy   周宇
+> HA               1   思华
+> installer        1   xiaoy
+> x-apigateway-web 1   家乐
+
+> 代码走读计划
+	>> 时间
+		下周一
+	>> 走读内容
+		gateway 转换流程
+		gateway 转换单元测试
+
+> 测试用例模板
+	>> 序号	模块	子模块	前置条件	标题	操作步骤	预期结果	实际结果	备注	正/反例	测试人员
+
+> DAM 项目bug 调试程序
+	>> GW VS 相关字段
+		>>> 查看envoy 管理面配置是否下发正确
+		>>> 查看 envoy 程序是否正常运行
+		>>> 查看相应的 CRD 对象 检查前端传入数据是否正确
+		>>> 查看 proxy 对象中的 数据是否正确
+			>>>> 不正确则 gateway调试
+		>>> dam 层调试
+	>> GW VS 不相关
+		>>> 查看 envoy 管理面配置下发是否正确
+		>>> 查看 envoy 程序是否正常运行
+		>>> 查看相应的 CRD 对象 检查前端传入数据是否正确
+		>>> dam 层调试
+
+> kube-apiserver 启动参数问题
+  >> service-cluster-ip-range 
+    https://rancher.com/docs/rke/latest/en/config-options/services/#kubernetes-api-server-options
+  >> 服务绑定 127.0.0.1 时出现 "127.0.0.1": may not be in the loopback range (127.0.0.0/8, ::1/128)
+    https://github.com/rancher/rke/issues/1981
+    controller.go:228] unable to sync kubernetes service: Endpoints "kubernetes" is invalid:
+  >> 日志
+    --logtostderr has been deprecated
+
+> 一致性hash 
+	>> 结论
+		>>> 应该废弃 RING_HASH 相关的字段
+		>>> 对应envoy 相关字段有两处
+		  1设置 hash 函数 和 ring 的 size ；在 cluster 的 Cluster.RingHashLbConfig ； 在这里设置好实现也合理
+			2 设置参与 hash 的字段； 在 RouteAction 中 RouteAction.HashPolicy ；这里设置这个字段的话，上下文太长了，感觉不合理；等对这个字段的研究深入后，或者出现更优雅的实现后，再加入这个字段；
+
+> upstream ssl 认证修改
+	>> upstream 简单认证 需要的参数
+		>>> 只需要 证书验证的名字 即可
+	>> upstream 双向认证 需要的参数
+		>>> 需要 证书和 例如协议协商 相关的多个参数
+
+> 测试 bug 生命周期
+	>> 测试人员在测试环境发现 bug ，确认代码版本为最新后，提交到禅道写明 重现步骤
+	>> 开发在开发环境重现
+	>> 开发开发环境修复bug，提交 bug 修复 给 测试
+	>> 测试确认修复成功 关闭 bug

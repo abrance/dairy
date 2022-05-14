@@ -1,0 +1,32 @@
+> 部署 一套 管理面界面 管理面 和 envoy
+	>> 部署管理面界面 脚本
+	>> 部署管理面 apiserver controller  脚本
+------------------------------------------------------------
+cd /opt/software
+wget http://192.192.100.68/x-apigateway/installer/-/archive/master/installer-master.tar.gz
+
+tar zxvf install-master.tar.gz
+cd install-master/install-apiserver-single
+# 自动部署 ； 不过推荐按照 main.sh 一行一行执行
+sh main.sh
+
+# 部署 controller
+mytodo 
+cd /opt/
+wget http://192.192.100.68/x-apigateway/dam/-/archive/main/dam-main.tar.gz
+tar zxvf dam-main.tar.gz
+mv dam-main dam
+cd dam
+k apply -f crds && k
+------------------------------------------------------------
+
+	>> 部署 docker-enovy 脚本
+------------------------------------------------------------
+mkdir -p /opt/software/ && cd /opt/software 
+wget --http-user=team  --http-passwd=OURYUN http://192.192.100.68:12800/softwares/debian10-emacs-envoy
+
+docker load < ./debian10-emacs-envoy
+docker run -itd -p 9902:9902 -p 11000-11030:11000-11030 --name myenvoy envoy1 /bin/bash
+# 前台启动 envoy 
+docker exec myenvoy bash -c "cd /opt/bin && sh start "
+------------------------------------------------------------

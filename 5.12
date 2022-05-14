@@ -1,0 +1,162 @@
+> review 材料
+	>> review 计划文档
+	>> 网页
+		proxy 转换流程
+		proxy 落盘流程
+		gitlab wiki
+	>> dam.wiki
+
+
+> review 计划
+	>> gateway 转换代码
+	>> gateway 转换测试代码
+	>> DAM 文档
+		>>> 设计文档
+			>>>> gateway 层转换设计文档
+			>>>> dam 层转换设计文档
+		>>> 新人文档
+			>>>> 使用 report 文档
+			>>>> 使用 logger 文档
+		>>> 部署文档
+			>>>> 启动和编译打包DAM 项目
+		>>> 测试文档
+			>>>> DAM 项目单元测试
+			>>>> DAM 项目其他测试
+
+
+> 代码覆盖率检查
+	>> ginkgo -cover -coverprofile=coverprofile.cov 加上上面两个参数将在目录下输出一个文件，通过 tool 分析 go tool cover -func=coverprofile.cov -o coverprofile.txt 会输出覆盖率
+------------------------------------------------------------
+github.com/ouryun/dam/projects/gateway/pkg/translator/config_source.go:29:      SourceMetaFromStruct            0.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/config_source.go:40:      objMetaToStruct                 0.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/config_source.go:47:      setObjMeta                      0.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/config_source.go:65:      GetSourceMeta                   0.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/config_source.go:73:      appendSource                    0.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/config_source.go:82:      ForEachSource                   0.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/config_source.go:95:      makeSourceRef                   0.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/http.go:39:               GenerateVHList                  85.7%
+github.com/ouryun/dam/projects/gateway/pkg/translator/http.go:54:               GenerateServer                  92.3%
+github.com/ouryun/dam/projects/gateway/pkg/translator/http.go:87:               DesiredListener                 100.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/http.go:100:              GenerateListeners               92.3%
+github.com/ouryun/dam/projects/gateway/pkg/translator/http.go:124:              GatewayContainsVirtualService   0.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/http.go:149:              convertPRCToRPC                 42.9%
+github.com/ouryun/dam/projects/gateway/pkg/translator/http.go:173:              generateRoute                   45.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/http.go:263:              PluginInstanceNameToPluginName  0.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/http.go:272:              DesiredVirtualHost              100.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/http.go:282:              GenerateVSConfMap               21.4%
+github.com/ouryun/dam/projects/gateway/pkg/translator/http.go:309:              virtualServiceToVirtualHost     75.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/http.go:323:              VirtualHostName                 100.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/http.go:331:              validateRoutes                  80.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/translator.go:30:         NewTranslator                   0.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/translator.go:37:         NewDefaultTranslator            0.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/translator.go:46:         Translate                       0.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/translator.go:89:         validateGateways                0.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/translator.go:119:        gatewaysRefsToString            0.0%
+github.com/ouryun/dam/projects/gateway/pkg/translator/translator.go:129:        filterGateways                  0.0%
+total:                                                                          (statements)                    33.3%
+------------------------------------------------------------
+	>> 自定义 代码覆盖率检查
+		# 以 http.go 为例
+------------------------------------------------------------
+cd projects/gateway/pkg/translator/
+ginkgo -cover -coverprofile=coverprofile.cov -ldflags "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=ignore"
+go tool cover -func=coverprofile.cov -o coverprofile.txt
+cat coverprofile.txt | grep "http.go"
+cat coverprofile.txt | grep "http.go" | awk '{print $3}' | awk '{sum += $1} END {printf "NR = %d,Average = %3.3f%\n",NR,sum/NR}'
+
+rm ./{coverprofile.cov,coverprofile.txt}
+------------------------------------------------------------
+
+> VS 经过 gateway 层转换后，resourceVersion 字段前进了一个版本
+	>> 定位问题在 proxy 落盘时，发生了强制更新 NamespaceStatus 字段，继而 resourceVersion 也连带发生改变
+	>> 结论
+		>>> 从现有的 通过对比 solokit 更新 VS 资源 前后，发现有以下字段发生改变
+		metadata:
+			resource_version
+			generation
+		namespaced_statuses: 全部内容
+		>>> 解决: 注释掉修改 status 逻辑
+************************************************************
+创建 VS 时，gateway 完成 VS -> proxy 转换 落盘时进行了改变
+------------------------------------------------------------
+metadata:mock-vs
+{
+  "domains": [
+    "our.com"
+  ],
+  "routes": [
+    {
+      "matchers": [
+        {
+          "PathSpecifier": {
+            "Prefix": "/prefix"
+          }
+        }
+      ],
+      "Action": {
+        "DirectResponseAction": {
+          "status": 200,
+          "body": "mock-body"
+        }
+      },
+      "rid": 11111111,
+      "name": "mock-route",
+      "header_manipulation": {}
+    }
+  ],
+  "metadata": {
+    "name": "mock-vs",
+    "namespace": "default",
+    "resource_version": "193526",
+    "generation": 1
+  },
+  "namespaced_statuses": {}
+}
+
+------------------------------------------------------------
+metadata:mock-vs
+{
+  "domains": [
+    "our.com"
+  ],
+  "routes": [
+    {
+      "matchers": [
+        {
+          "PathSpecifier": {
+            "Prefix": "/prefix"
+          }
+        }
+      ],
+      "Action": {
+        "DirectResponseAction": {
+          "status": 200,
+          "body": "mock-body"
+        }
+      },
+      "rid": 11111111,
+      "name": "mock-route",
+      "header_manipulation": {}
+    }
+  ],
+  "metadata": {
+    "name": "mock-vs",
+    "namespace": "default",
+    "resource_version": "193527",
+    "generation": 2
+  },
+  "namespaced_statuses": {
+    "statuses": {
+      "default": {
+        "state": 1,
+        "reported_by": "gateway",
+        "subresource_statuses": {
+          "*v1.Proxy.default.local": {}
+        }
+      }
+    }
+  }
+}
+------------------------------------------------------------
+************************************************************
+

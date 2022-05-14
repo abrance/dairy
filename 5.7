@@ -1,0 +1,68 @@
+> base64 命令
+	>> -d 解码
+	>> -w 0  去掉默认换行
+
+> C++ 语法简介
+	>> :: 指定 类 函数 变量 的命名空间和类
+	>> :  构造函数后面使用 : 可以直接初始化成员变量 多个变量之间用 ,  连接
+	>> <> 模板
+	>> ~ 析构函数 释放对象
+	>> 智能指针
+	>> auto b = std::move(a)  a 内存空间转移给 b
+	>> using  类似 typedef
+	>> 成员方法后面的 const 表示 此方法对成员变量为只读权限
+	>> static 除了 C 的用法还可以 定义类的静态方法
+
+> sed 多行拼接为一行（去掉 \n）
+	>> cat /opt/k8s/work/ca.pem | base64 | sed ':a;N;s/\n//g;ta'
+	>> 上面 可以用 cat /opt/k8s/work/ca/pem | base64 -w 0 实现
+
+> envoy 所在机器 listener 和 本地端口冲突的表现问题
+	情况 1 先下发了gw配置端口再启动envoy，这是envoy发现listener 使用端口重复，envoy 会拒绝掉请求，表现是 永远在拉取错误配置，永远拒绝错误配置
+************************************************************
+gw配置
+------------------------------------------------------------
+  metadata:
+    creationTimestamp: "2022-05-06T01:40:39Z"
+    generation: 2
+    name: mock-gw
+    namespace: default
+    resourceVersion: "143604"
+    uid: a0cae8f7-3c65-4587-b942-45aa09474541
+  spec:
+    listeners:
+    - bindAddress: 0.0.0.0
+      bindPort: 11030
+      bindToPort: true
+      srvs:
+      - httpServer:
+          options:
+            mergeSlashes: false
+            skipXffAppend: false
+          virtualServices:
+          - mock-vs
+        sslConfigurations: {}
+    ngNames:
+------------------------------------------------------------
+envoy 报错信息
+------------------------------------------------------------
+[2022-05-06 02:24:51.557][468][warning][config] [source/common/config/grpc_subscription_impl.cc:126] gRPC config for type.googleapis.com/envoy.config.listener.v3.Listener rejected: Error adding/updating listener(s) local-11030: cannot bind '0.0.0.0:11030': Address already in use
+------------------------------------------------------------
+************************************************************
+  情况 2 先启动 envoy，再下发 gw 配置
+	???
+
+> 一致性hash 
+	>> 结论
+		>>> 应该废弃 RING_HASH 相关的字段
+		>>> 对应envoy 相关字段有两处
+		  1设置 hash 函数 和 ring 的 size ；在 cluster 的 Cluster.RingHashLbConfig ； 在这里设置好实现也合理
+			2 设置参与 hash 的字段； 在 RouteAction 中 RouteAction.HashPolicy ；这里设置这个字段的话，上下文太长了，感觉不合理；等对这个字段的研究深入后，或者出现更优雅的实现后，再加入这个字段；
+
+> GO111MODULE=auto 导致 goland 不认识 vendor 的包 项目代码标红
+
+> grep
+	-i 大小写不敏感
+	-A n 显示下面 n 行
+	-B n 显示上面 n 行
+	-C n 显示上下 n 行
