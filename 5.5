@@ -42,7 +42,7 @@
     --logtostderr has been deprecated
 
 > 一致性hash 
-	>> 结论
+	>> 结论 
 		>>> 应该废弃 RING_HASH 相关的字段
 		>>> 对应envoy 相关字段有两处
 		  1设置 hash 函数 和 ring 的 size ；在 cluster 的 Cluster.RingHashLbConfig ； 在这里设置好实现也合理
@@ -50,7 +50,7 @@
 
 > upstream ssl 认证修改
 	>> upstream 简单认证 需要的参数
-		>>> 只需要 证书验证的名字 即可
+		>>> 证书验证 客户端服务端协商
 	>> upstream 双向认证 需要的参数
 		>>> 需要 证书和 例如协议协商 相关的多个参数
 

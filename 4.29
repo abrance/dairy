@@ -118,6 +118,8 @@ echo "install end"
 	>> docker commit $src_contain $des_contain #  先提交现有容器的一个镜像
 	>> docker run -itd  -p 10000-10010:10000-10010  --name myenvoy envoy1  # 添加端口映射
 
+docker run -itd  -p 11000-11040:11000-11040  --name myenvoy envoy-5.14
+
 > docker 导出和加载镜像文件
 ------------------------------------------------------------
 # 导出镜像为镜像文件
