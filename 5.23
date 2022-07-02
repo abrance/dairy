@@ -1,0 +1,69 @@
+> tcpdump 抓 arp 包
+	>> tcpdump -i eth0 arp -w $outfile
+	
+> shell 脚本 命令解析过程
+	https://blog.csdn.net/huayangshiboqi/article/details/80217150
+	>> shell 脚本中禁用 花括号机制
+
+> 查看 linux 发行版本
+	>> cat /etc/os-release | head -1
+
+> mock fake
+	>> mock 模拟技术，不一定是真实可用的数据，为了测试某中小型的功能，模拟这部分功能关注的数据进行模拟
+	>> fake 虚假实现，一般为可以运行的真实数据，可能为常驻内存的数据库
+
+
+> 单元测试：每次写了一部分代码，必须加上那部分的小型测试用例，最好也写上中型测试用例，一起提交
+
+> 文档
+	>> 完整性
+	>> 正确性
+	>> 一致性
+
+> 评审设计文档重点思路
+	>> 设计
+	>> 接口与协议
+	>> 可测试性
+
+> 写测试思路
+	>> 可读性问题
+	>> 返回值问题
+	>> 安全性问题（不同层面上）
+	>> 扩展性问题
+	>> 复用性问题
+	>> 线程安全问题
+	>> 错误代码文档
+	>> 代码注释问题
+	>> 空值问题
+	>> 易混淆问题（如识别A 那么a会被识别吗？） 边界问题
+	>> 重复造轮子问题
+
+	>> 执行时间和效率
+	>> 考虑到基于常量的优化（算法的优化：比如其实只有 A和 空格，挑A计数，那针对这种情况设计算法）
+	>> 底层实现上的问题
+	>> 大体量计算
+
+
+> gomega 数值比对
+	>> 尽量使用 Equal  BeEquivalentTo 类型不同校验结果可能为正确
+	>> Equal 两个值可能会因为太长而截断，使用 format.MaxLength = 可以设置比对的长度 format.MaxDepth 可以比对深度
+
+
+> ginkgo 调试
+	>> fmt.Printf 是打印不出来的
+	>> 使用 By 代替  By(fmt.Sprintf("configMap: %v", configMap))
+
+
+> 执行 shell 的方式的区别
+	相对路径执行  ./test.sh   test/test.sh 都可以
+	绝对路径执行  /tmp/test.sh
+	sh 命令执行   sh test.sh           
+	. 命令执行    . test.sh
+	source 执行   source test.sh
+	>> 区别
+		. 命令和source 命令将此shell 作为 当前shell的一部分运行，如果有错误，则这个shell都会退出。（如果里面有一些执行变量的定义，则会导致报错）
+		sh 命令执行使用 set -o pipefail  会报错
+
+
+> 华为云绑定 VIP 高可用部署
+	>> 排查ping 不通VIP 问题： https://support.huaweicloud.com/vpc_faq/vpc_faq_0083.html

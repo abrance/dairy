@@ -1,0 +1,9 @@
+> awk
+	>> 去掉第一行
+		awk 'NR>1{xxx}' e.g.   xxx | awk 'NR>1{print $1}'
+
+> 学习linux 命令
+	>> 概念
+	>> 常用选项
+	>> 技巧
+	>> e.g.

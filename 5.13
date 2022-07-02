@@ -2,6 +2,7 @@
 ************************************************************
 history
 ------------------------------------------------------------
+mkdir -p /opt/software/ && cd /opt/software/
 wget https://npm.taobao.org/mirrors/node/v10.14.1/node-v10.14.1-linux-x64.tar.gz
 tar xzvf node-v10.14.1-linux-x64.tar.gz
 mv node-v10.14.1-linux-x64 /usr/local/node
@@ -10,8 +11,6 @@ export NODE_HOME=/usr/local/node
 export PATH=\$PATH:\$NODE_HOME/bin
 EOF
 source /etc/profile
-npm i
-npm run build:prod
 ------------------------------------------------------------
 ************************************************************
 

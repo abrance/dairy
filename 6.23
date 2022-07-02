@@ -1,0 +1,31 @@
+> arp
+	https://cloud.tencent.com/developer/article/1828308
+	>> 概念
+		arp 可以维护和查看 arp 缓存，可以使用 ip neigh 代替
+		arp 已不建议使用，因为 net-tool 工具包已逐渐淘汰，最好使用 ip neigh 代替
+	>> 常用选项
+		-n：不解析ip地址为名称
+		-v：详细信息
+		-i：指定操作的接口
+		-d：删除一个arp条目
+	>> 常用
+		>>> arp -n -v -i ${interface} -d ${IP}  删除 某网卡下的 arp ip:mac 映射
+		>>> arp -s ${IP} ${MAC}  新增 某网卡下 的 arp ip:mac 映射
+	>> 技巧
+		ip neigh flush [dev ${interface} | all] 可以批量清空 arp 表
+
+> ip neigh
+	>> 概念
+		维护 arp 表，建议使用这个
+	>> 常用选项
+       ip neigh { add | del | change | replace }
+                { ADDR [ lladdr LLADDR ] [ nud STATE ] | proxy ADDR } [ dev DEV ]
+       ip neigh { show | flush } [ proxy ] [ to PREFIX ] [ dev DEV ] [ nud STATE ]
+			 STATE: reachable permanent stale failed
+	>> 技巧
+	  ip neigh add ${IP} lladdr ${MAC} dev ${interface} nud ${state}       新增单个 arp 条目
+		ip neigh replace ${IP} lladdr ${MAC} dev ${interface} nud ${state}   修改单个 arp 条目
+		ip neigh del ${ip} dev ${interface}  删除一个arp 条目
+		ip neigh flush all  清空 arp 条目
+		ip neigh flush dev ${interface}  清空某网卡 条目
+

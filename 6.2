@@ -1,0 +1,61 @@
+> 测试 服务端 tls 版本方式
+	>> 被测对象 openssl s_server -tls1_2 -alpn http/1.1 -accept 4433 -CAfile ./ca.pem -cert ./apple.pem -key ./apple-key.pem
+	组织客户端  openssl s_client -tls1_2 -no_renegotiation -connect 192.192.100.69:4433
+	如果服务端 tls 版本在范围内会握手成功，不报错
+	如不在，直接握手失败
+	
+> 测试 客户端 tls 版本方式
+	>> 被测对象  openssl s_client -tls1_1 -no_renegotiation -connect 192.192.100.69:4433
+	组织服务端  openssl s_server -tls1_2 -alpn http/1.1 -accept 4433 -CAfile ./ca.pem -cert ./apple.pem -key ./apple-key.pem -named_curve P-256
+	如果服务端 tls 版本在范围内会握手成功，不报错
+	如不在，直接握手失败，会出现
+	error:1408A10B:SSL routines:ssl3_get_client_hello:wrong version number:s3_srvr.c:977:
+	shutting down SSL
+
+> 测试 服务端是否支持重新协商
+	openssl s_client 连接后 支持重新协商的服务会显示 Secure Renegotiation IS supported
+	openssl s_client 连接 后输入r ，不支持将直接关闭，支持则会显示服务端信息
+	
+
+> 测试 服务端 ALPN
+	 openssl s_client -tls1_2 -no_renegotiation -alpn h2,http/1.1 -connect 192.192.100.69:4433
+	 成功会显示 ALPN protocol: http/1.1 类似字样（这里服务端只支持 1.1）
+
+> 测试 客户端 ALPN
+	openssl s_server -alpn http/1.1 -accept 4433 -CAfile ./ca.pem -cert ./apple.pem -key ./apple-key.pem
+	这样客户端采用 ALPN 时 服务端会显示
+	ALPN protocols advertised by the client: h2, http/1.1
+	ALPN protocols selected: http/1.1
+
+> 测试 服务端 椭圆曲线算法
+	>> 以服务端为例  openssl s_server -alpn http/1.1 -accept 4433 -CAfile ./ca.pem -cert ./apple.pem -key ./apple-key.pem
+	openssl s_client -tls1_2  -connect 192.192.100.69:4433  -curves P-256
+	支持 P-256 算法会出现 Server Temp Key: ECDH, P-256, 256 bits
+	因为最后会由服务端选择算法
+
+> 测试 客户端 椭圆曲线算法
+	>> 被测对象 openssl s_client -tls1_2 -no_renegotiation -alpn h2,http/1.1 -connect 192.192.100.69:4433  -curves X25519 为例
+	开启服务端，只使用一种椭圆曲线算法 e.g.  openssl s_server -alpn http/1.1 -accept 4433 -CAfile ./ca.pem -cert ./apple.pem -key ./apple-key.pem -named_curve P-256
+	如果客户端没有这个椭圆曲线算法则会出现
+	Server Temp Key: DH, 2048 bits
+	Shared Elliptic curves: NONE
+	如果有这个椭圆曲线算法会出现
+	Shared Elliptic curves: P-256: 
+
+> 测试 客户端证书
+	组织服务端 设置客户端必须提供证书
+	openssl s_server -tls1_2 -alpn http/1.1 -accept 4433 -CAfile ./ca.pem -cert ./apple.pem -key ./apple-key.pem -Verify 1
+	如果客户端没有证书会出现
+	SSL routines:tls_process_client_certificate:peer did not return a certificate:../ssl/statem/statem_srvr.c:3699:
+	shutting down SSL
+	CONNECTION CLOSED
+	客户端有证书会出现
+	ALPN protocols advertised by the client: http/1.1
+	ALPN protocols selected: http/1.1
+	depth=1 C = CN, ST = Shanghai, L = Shanghai, O = k8s, OU = System, CN = kubernetes
+	verify error:num=19:self signed certificate in certificate chain
+	verify return:1
+	depth=1 C = CN, ST = Shanghai, L = Shanghai, O = k8s, OU = System, CN = kubernetes
+	verify return:1
+	depth=0 C = CN, ST = Shanghai, L = Shanghai, O = system:masters, OU = System, CN = admin
+	verify return:1

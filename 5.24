@@ -1,0 +1,23 @@
+> gitignore
+	https://www.rumenz.com/rumenbiji/git-gitignore.html
+
+> k8s label 最大长度
+	>> 结论
+		k8s 没有针对单个对象 labels 的长度进行限制，但是 labels 的长度也不是无限，是根据 etcd 单个对象的大小进行限制，直到达到 etcd 单个对象的大小限制才拒绝这个对象。
+	>> 验证流程
+		创建 upstream 对象，逐渐增加 label 的数量，直到报错为止；算上其他字段size，大概为 1.5M，符合 etcd 设置的单次请求的大小
+	>> etcd 单次请求大小限制
+		https://etcd.io/docs/v3.3/dev-guide/limit/
+
+> debian10 ls 显示颜色
+************************************************************
+/root/.bashrc
+------------------------------------------------------------
+# 解开注释
+#export LS_OPTIONS='--color=auto'
+#eval `dircolors`
+#alias ls='ls $LS_OPTIONS'
+#alias ll='ls $LS_OPTIONS -l'
+#alias l='ls $LS_OPTIONS -lA'
+------------------------------------------------------------
+************************************************************

@@ -1,0 +1,58 @@
+> tmux
+	https://www.ruanyifeng.com/blog/2019/10/tmux.html
+	>> 查看命令
+	  C-b ?
+	>> 挂起 tmux
+		C-b C-z
+	>> session 
+		>>> 概念
+			可以有多个session 每个server 有多个 window， 每个window 可以包含多个 panes （窗格），每个窗格为一个终端
+------------------------------------------------------------
+# 新增一个命名 session 
+tmux new -s $server_name
+# 挂起当前 session
+# C-b d
+# 拉起一个 session
+# tmux a -t $session_name  # tmux a 会拉起最前面那个
+# 查看所有 session
+# tmux ls
+# rename 当前 session
+# C-b $
+------------------------------------------------------------
+	>> window
+------------------------------------------------------------
+# 新建一个 window
+# C-b c
+# rename window
+# C-b ,
+# kill window
+# C-b C-&
+# 旋转一个window里的 panes
+# C-b C-o
+# 列出 window
+# C-b w
+------------------------------------------------------------
+	>> pane
+------------------------------------------------------------
+# 分出一个 pane
+# C-b "  上下"  C-b % 左右
+# 切换到下一个 pane
+# C-b o   # C-b ; 切到上一个
+# remove 一个 pane
+# C-b x
+# 当前窗格到一个独立window
+# C-b !
+# 当前窗格切换全屏显示 | 恢复原来大小
+# C-b z
+# 显示时间
+# C-b t
+# 方向键调整pane 大小  
+# C-b C-<Arrow> | C-b M-<Arrow> 
+------------------------------------------------------------
+
+> jetbrains 分支合并
+	e.g. dev master  branch -> dev
+	>> Git -> Log -> master 鼠标右键点击 -> checkout and rebase on dev -> 处理冲突 -> push -> git diff branch dev origin --stat 查看分支差异
+
+
+> M-g 跳转行

@@ -1,0 +1,424 @@
+> debian10 单机部署 x-apigateway
+	>> main.sh
+------------------------------------------------------------
+#!/bin/bash
+
+# 入口，按照顺序依次执行脚本
+# 没有测试完全，最好自己手动按序执行
+
+cd $(dirname $(dirname "$0")) || exit
+sh init-env.sh
+
+sh init-etcd.sh
+
+sh install-go-1.17.sh
+
+sh get-kubectl-apiserver.sh
+
+sh gen-cert.sh
+
+sh init-apiserver.sh
+
+sh gen-kubeconfig.sh
+------------------------------------------------------------
+	>> init-env.sh
+------------------------------------------------------------
+#!/bin/bash
+set -euxo pipefail
+
+# 安装 curl
+apt install -y libssl-dev
+mkdir -p /opt/software/ && cd /opt/software/
+wget https://curl.se/download/curl-7.83.1.tar.gz
+tar zxvf curl-7.83.1.tar.gz
+cd curl-7.83.1/
+./configure --with-ssl
+make && make install
+
+# 安装 docker
+curl -fsSL https://get.docker.com/ | sh
+systemctl start docker
+systemctl enable docker.service
+------------------------------------------------------------
+	>> init-etcd.sh
+------------------------------------------------------------
+docker network create --driver bridge --subnet=10.2.36.0/16 --gateway=10.2.1.1 mynet2
+docker network ls
+
+docker run -d \
+-p 2479:2379 \
+-p 2381:2380 \
+--name node1 \
+--network=mynet2 \
+--ip 10.2.36.1 \
+registry.aliyuncs.com/google_containers/etcd:3.3.10 \
+etcd \
+-name node1 \
+-advertise-client-urls http://10.2.36.1:2379 \
+-initial-advertise-peer-urls http://10.2.36.1:2380 \
+-listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 \
+-initial-cluster-token etcd-cluster \
+-initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" \
+-initial-cluster-state new
+
+docker run -d \
+-p 2579:2379 \
+-p 2382:2380 \
+--name node2 \
+--network=mynet2 \
+--ip 10.2.36.2 \
+registry.aliyuncs.com/google_containers/etcd:3.3.10 \
+etcd \
+-name node2 \
+-advertise-client-urls http://10.2.36.2:2379 \
+-initial-advertise-peer-urls http://10.2.36.2:2380 \
+-listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 \
+-initial-cluster-token etcd-cluster \
+-initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" \
+-initial-cluster-state new
+
+docker run -d \
+-p 2679:2379 \
+-p 2383:2380 \
+--name node3 \
+--network=mynet2 \
+--ip 10.2.36.3 \
+registry.aliyuncs.com/google_containers/etcd:3.3.10 \
+etcd \
+-name node3 \
+-advertise-client-urls http://10.2.36.3:2379 \
+-initial-advertise-peer-urls http://10.2.36.3:2380 \
+-listen-client-urls http://0.0.0.0:2379 -listen-peer-urls http://0.0.0.0:2380 \
+-initial-cluster-token etcd-cluster \
+-initial-cluster "node1=http://10.2.36.1:2380,node2=http://10.2.36.2:2380,node3=http://10.2.36.3:2380" \
+-initial-cluster-state new
+------------------------------------------------------------
+	>> install-go-1.17.sh
+------------------------------------------------------------
+#!/bin/bash
+
+set -eux
+
+cd $(dirname $0) || exit 1
+
+GO_VERSION=1.17.10
+GO_INSTALL_DIR=/opt/go
+GO_ROOT=${GO_INSTALL_DIR}/${GO_VERSION}
+GO_PATH=~/go
+ENV_FILE=/etc/profile
+#GO_INSECURE_LIB=192.192.100.68
+
+# Install Golang
+wget -c https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz
+
+mkdir -p ${GO_INSTALL_DIR}
+rm -rf ${GO_INSTALL_DIR}/*
+tar -zxf go${GO_VERSION}.linux-amd64.tar.gz -C ${GO_INSTALL_DIR}/
+mv ${GO_INSTALL_DIR}/go ${GO_ROOT}
+
+# Config env for all user
+#sed -i 's/^export GOROOT=.*$//g' ${ENV_FILE}
+#sed -i '$a export GOROOT='"${GO_ROOT}"'' ${ENV_FILE}
+#sed -i 's/^export GOPATH=.*$//g' ${ENV_FILE}
+#sed -i '$a export GOPATH='"${GO_PATH}"'' ${ENV_FILE}
+sed -i 's/^export PATH=.*\/go\/bin.*$//g' ${ENV_FILE}
+sed -i '$a export PATH='"${GO_ROOT}"'/bin:'"${GO_PATH}"'/bin:$PATH' ${ENV_FILE}
+
+## Remove consecutive blank lines
+sed -i '/^$/{N;/\n$/D};' ${ENV_FILE}
+
+# Config Golang env for current user
+${GO_ROOT}/bin/go env -w GO111MODULE=on
+${GO_ROOT}/bin/go env -w GOPROXY=https://goproxy.cn,direct
+#${GO_ROOT}/bin/go env -w GOINSECURE=${GO_INSECURE_LIB}
+#${GO_ROOT}/bin/go env -w GOPRIVATE=${GO_INSECURE_LIB}
+${GO_ROOT}/bin/go env -w GOROOT=${GO_ROOT}
+${GO_ROOT}/bin/go env -w GOPATH=${GO_PATH}
+------------------------------------------------------------
+	>> get-kubectl-apiserver.sh
+------------------------------------------------------------
+# wget
+mkdir -p /opt/k8s && cd /opt/k8s
+wget --http-user=team  --http-passwd=OURYUN http://192.192.100.68:12800/bin/kube-apiserver
+wget --http-user=team  --http-passwd=OURYUN http://192.192.100.68:12800/bin/kubectl
+chmod +x kubectl && chmod +x kube-apiserver
+# 链接
+ln -s ${PWD}/kubectl /usr/local/bin/
+cat >> /etc/profile << EOF
+alias k="kubectl"
+EOF
+------------------------------------------------------------
+	>> gen-cert.sh
+------------------------------------------------------------
+# 获取 cfssl 在 ./bin 目录下
+
+mkdir -p /opt/k8s/work && cd /opt/k8s
+wget --http-user=team  --http-passwd=OURYUN  http://192.192.100.68:12800/bin/cfssl/cfssl_linux-amd64
+wget --http-user=team  --http-passwd=OURYUN  http://192.192.100.68:12800/bin/cfssl/cfssljson_linux-amd64
+mv cfssl_linux-amd64 cfssl && chmod +x cfssl
+mv cfssljson_linux-amd64 cfssljson && chmod +x cfssljson
+ln -s ${PWD}/cfssl /usr/local/bin
+ln -s ${PWD}/cfssljson /usr/local/bin
+
+# 创建 logs 目录
+mkdir -p /opt/k8s/logs
+
+cd work
+# 需要
+# ca-csr.json
+# ca-config.json
+# server-csr.json
+# admin-csr.json 用于生成 kubectl admin 用户 kubeconfig
+
+# 生成 ca-csr.json
+cat << EOF > ca-csr.json
+{
+  "CN": "kubernetes",
+  "hosts": [
+    "127.0.0.1",
+    "kubernetes",
+    "kubernetes.default",
+    "kubernetes.default.svc",
+    "kubernetes.default.svc.cluster",
+    "kubernetes.default.svc.cluster.local."
+  ],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "ST": "Shanghai",
+      "L": "Shanghai",
+      "O": "k8s",
+      "OU": "System"
+    }
+  ]
+}
+EOF
+
+# ca-config.json
+cat << EOF > ca-config.json
+{
+  "signing": {
+    "default": {
+      "expiry": "87600h"
+    },
+    "profiles": {
+      "kubernetes": {
+         "expiry": "87600h",
+         "usages": [
+            "signing",
+            "key encipherment",
+            "server auth",
+            "client auth"
+        ]
+      }
+    }
+  }
+}
+EOF
+
+cat << EOF > server-csr.json
+{
+  "CN": "kubernetes",
+  "hosts": [
+    "127.0.0.1",
+    "kubernetes",
+    "kubernetes.default",
+    "kubernetes.default.svc",
+    "kubernetes.default.svc.cluster",
+    "kubernetes.default.svc.cluster.local."
+  ],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "ST": "Shanghai",
+      "L": "Shanghai",
+      "O": "k8s",
+      "OU": "System"
+    }
+  ]
+}
+EOF
+
+cat << EOF > admin-csr.json
+{
+  "CN": "admin",
+  "hosts": [
+    "127.0.0.1",
+    "kubernetes",
+    "kubernetes.default",
+    "kubernetes.default.svc",
+    "kubernetes.default.svc.cluster",
+    "kubernetes.default.svc.cluster.local."
+  ],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+      "C": "CN",
+      "O": "system:masters",
+      "OU": "System",
+      "L": "Shanghai",
+      "ST": "Shanghai"
+    }
+  ]
+}
+EOF
+
+# 签发 ca
+cfssl gencert -initca ca-csr.json | cfssljson -bare ca -
+# 签发 apiserver 证书
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes server-csr.json | cfssljson -bare\
+ server
+# 签发 admin 用户证书，绑定用户角色，供 kubectl KUBECONFIG 使用
+cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=kubernetes admin-csr.json | cfssljson -bare \
+admin
+# token
+cat > token.csv << EOF
+c47ffb939f5ca36231d9e3121a252940,jane,1
+a1232123131231231231231231233112,cluster-admin,2,system:masters
+b4564546555565444564564544545645,admin,3,system:masters
+EOF
+
+# apiserver bootstrap
+cat << EOF > kube-apiserver.conf
+KUBE_APISERVER_OPTS="--logtostderr=false \\
+--v=5 \\
+--etcd-servers=http://127.0.0.1:2479 \\
+--bind-address=127.0.0.1 \\
+--secure-port=6443 \\
+--advertise-address=127.0.0.1 \\
+--allow-privileged=true \\
+--enable-admission-plugins=NamespaceLifecycle,LimitRanger,ServiceAccount,ResourceQuota,NodeRestriction \\
+--authorization-mode=RBAC,Node \\
+--enable-bootstrap-token-auth=true \\
+--token-auth-file=/opt/k8s/work/token.csv \\
+--service-node-port-range=30000-32767 \\
+--kubelet-client-certificate=/opt/k8s/work/server.pem \\
+--kubelet-client-key=/opt/k8s/work/server-key.pem \\
+--tls-cert-file=/opt/k8s/work/server.pem  \\
+--tls-private-key-file=/opt/k8s/work/server-key.pem \\
+--client-ca-file=/opt/k8s/work/ca.pem \\
+--service-account-key-file=/opt/k8s/work/ca-key.pem \\
+--service-account-issuer=api \\
+--service-account-signing-key-file=/opt/k8s/work/server-key.pem \\
+--requestheader-client-ca-file=/opt/k8s/work/ca.pem \\
+--proxy-client-cert-file=/opt/k8s/work/server.pem \\
+--proxy-client-key-file=/opt/k8s/work/server-key.pem \\
+--requestheader-allowed-names=kubernetes \\
+--requestheader-extra-headers-prefix=X-Remote-Extra- \\
+--requestheader-group-headers=X-Remote-Group \\
+--requestheader-username-headers=X-Remote-User \\
+--enable-aggregator-routing=true \\
+--audit-log-maxage=30 \\
+--audit-log-maxbackup=3 \\
+--audit-log-maxsize=100 \\
+--audit-log-path=/opt/k8s/logs/k8s-audit.log"
+EOF
+------------------------------------------------------------
+	>> init-apiserver.sh
+------------------------------------------------------------
+cat << EOF > /usr/lib/systemd/system/kube-apiserver.service
+[Unit]
+Description=Kubernetes API Server
+Documentation=https://github.com/kubernetes/kubernetes
+
+[Service]
+EnvironmentFile=/opt/k8s/work/kube-apiserver.conf
+ExecStart=/opt/k8s/kube-apiserver \$KUBE_APISERVER_OPTS
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+------------------------------------------------------------
+	>> gen-kubeconfig.sh
+------------------------------------------------------------
+mkdir -p /root/.kube/ && cd /root/.kube
+# 生成 kubectl 的 kubeconfig
+
+LOCALIP=127.0.0.1
+
+kubectl config set-cluster kubernetes \
+    --certificate-authority=/opt/k8s/work/ca.pem \
+    --embed-certs=true \
+    --server=https://${LOCALIP}:6443 \
+    --kubeconfig=config
+
+kubectl config set-credentials cluster-admin \
+    --client-certificate=/opt/k8s/work/admin.pem \
+    --client-key=/opt/k8s/work/admin-key.pem \
+    --embed-certs=true \
+    --kubeconfig=config
+
+kubectl config set-context default \
+    --cluster=kubernetes \
+    --user=cluster-admin \
+    --kubeconfig=config
+
+kubectl config use-context default --kubeconfig=config
+kubectl get ns
+------------------------------------------------------------
+
+> 安装最新 curl
+	>> curl 官网  https://curl.se/download.html
+	>> 安装
+------------------------------------------------------------
+#!/bin/bash
+set -ex
+
+apt install -y libssl-dev
+mkdir -p /opt/software/ && cd /opt/software/
+wget https://curl.se/download/curl-7.83.1.tar.gz
+tar zxvf curl-7.83.1.tar.gz
+cd curl-7.83.1/
+./configure --with-ssl
+make && make install
+------------------------------------------------------------
+
+> wget
+	>> -i $url_list_file 指定 url_list 文件，会下载所有的
+	>> -P 指定下载到哪个目录
+
+
+> NAS DS918+ 一定要 UEFI 引导启动 ，USB启动不了
+
+> LB 算法
+	>> weighted round robin
+		加权轮询，根据权重进行轮询。优点：简单，便于理解 缺点：当有cookie 的服务参与，将频繁创建 cookie 销毁 cookie。适合简单应用
+	>> Weighted least request
+		加权最小请求
+		所有权重相等：O(1) 算法 概述：它选择配置中指定的 N 个随机可用主机（默认为 2 个），并选择活动请求最少的主机。这也被称为P2C（两个选择的幂）。P2C 负载平衡器具有这样的属性：群集中活动请求数最多的主机永远不会收到新请求。它将被允许耗尽，直到它小于或等于所有其他主机。
+		所有权重不相等：如果群集中的两个或多个主机具有不同的负载平衡权重，则负载均衡器将切换到使用加权轮循机制计划的模式，在该模式下，权重根据选择时主机的请求负载动态调整。在这种情况下，权重是在选取主机时使用以下公式计算的：weight = load_balancing_weight / (active_requests + 1)^active_request_bias
+			active_request_bias可以通过运行时进行配置，默认值为 1.0。它必须大于或等于 0.0。活动请求偏差越大，主动活动请求越积极，有效权重就越低。如果设置为 0.0，则最小请求负载均衡器的行为类似于轮循机制负载均衡器，并忽略选取时的活动请求计数。active_request_bias例如，如果active_request_bias为 1.0，则权重为 2 且活动请求计数为 4 的主机的有效权重为 2 / （4 + 1）^1 = 0.4。该算法在稳态下提供良好的平衡，但可能无法快速适应负载不平衡。此外，与P2C不同，主机永远不会真正耗尽，尽管随着时间的推移，它将收到更少的请求
+	>> Ring hash
+		一致性hash算法的一种实现 环hash
+		每个主机都经过哈希处理，并放置在与其重量成比例的环上。例如，如果主机 A 的权重为 1，主机 B 的权重为 2，则环上可能有三个条目：一个用于主机 A，两个用于主机 B。然而，这实际上并没有提供所需的2：1的圆圈分区，因为计算的哈希值可能巧合地非常接近彼此;因此，有必要将每个主机的哈希数相乘（例如，在主机 A 的环上插入 100 个条目，为主机 B 插入 200 个条目），以便更好地近似所需的分布。最佳做法是显式设置minimum_ring_size和maximum_ring_size，并监视min_hashes_per_host和max_hashes_per_host量规以确保良好的分布。对环进行适当分区后，在一组 N 个主机中添加或删除一个主机将仅影响 1/N 个请求。
+	>> Maglev
+		一致性hash算法的一种实现
+		Maglev具有更快的表查找构建时间和主机选择时间（当使用256K条目的大环尺寸时，分别约为10倍和5倍）。缺点是它不如环形哈希稳定。当主机被移除时，更多的键将移动位置（模拟显示，键将移动的大约两倍）
+	>> Random
+	  随机负载均衡器选择随机可用主机。如果未配置运行状况检查策略，则随机负载均衡器的性能通常优于轮循机制。随机选择可避免在发生故障的主机之后对集合中的主机偏置
+
+
+> TLS 密码套件
+	>> 资料
+		HTTPS权威指南 P59
+		signature_algoritms扩展是在TLS 1.2中定义的。它使客户端可以通告自己支持的各种签名和散列算法。TLS规格说明书中列出了RSA、DSA和ECDSA签名算法，以及MD5、SHA1、SHA224、SHA256、SHA384和SHA512这些散列算法。使用signature_algorithms扩展，客户端可以提交其支持的签名—散列算法对这个扩展是可选的；如果未设置，服务器会根据客户端提供的密码套件推断其支持的签名算法（比如RSA套件可以推断出RSA签名，ECDSA套件支持ECDSA，等等），而且假定其支持SHA1。
+	>> 结论
+		密码套件
+	>> 服务端 选择算法		https://blog.csdn.net/weixin_43408952/article/details/124715927
+
+> 代码 优化标准
+	>> 保证 代码可读性的情况下，考虑运行性能
+
+

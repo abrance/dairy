@@ -1,0 +1,8 @@
+> add-apt-repository 命令
+	>> 概念
+		相当于直接往 /etc/apt/source.list 里面添加了 debian 库
+	>> 常用选项
+		-r '$镜像源'   删除
+	>> e.g.
+		add-apt-repository 'deb https://mirrors.tuna.tsinghua.edu.cn/mongodb/apt/debian buster/mongodb-org/5.0 main'   添加一个库
+		add-apt-repository -r 'deb https://mirrors.tuna.tsinghua.edu.cn/mongodb/apt/debian buster/mongodb-org/5.0 main'  删除一个库

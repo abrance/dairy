@@ -1,0 +1,127 @@
+> type命令
+	>> type命令 用来显示指定命令的类型，判断给出的指令是内部指令还是外部指令。
+	>> 命令类型：
+		alias：     别名
+		keyword：   关键字，Shell保留字
+		function：  函数，Shell函数
+		builtin：   内建命令，Shell内建命令
+		file：      文件，磁盘文件，外部命令
+		unfound：   未找到
+  >> 语法：
+		type [选项] [参数]
+		选项：
+		-t：   输出"file"、"alias"或者 "builtin"，分别表示给定的指令为："外部指令"、"命令别名" 或者 "内部指令"；
+		-p：   如果给出的指令为外部指令，则显示其绝对路径；
+		-a：   在环境变量“PATH”指定的路径中，显示给定指令的信息，包括命令别名。
+		参数：
+		指令：要显示类型的指令
+
+		举例：
+		[root@localhost ~]# type ls
+		ls is aliased to `ls --color=tty'
+		[root@localhost ~]# type cd
+		cd is a shell builtin
+
+> go 添加不安全库方法
+************************************************************
+history
+------------------------------------------------------------
+GOINSECURE=192.192.100.68 GOPRIVATE=192.192.100.68
+# rm -f ./go.sum 不删除可能会报错
+------------------------------------------------------------
+
+go.mod
+------------------------------------------------------------
+require github.com/ouryun/dam-kit v0.0.3
+
+replace github.com/ouryun/dam-kit => 192.192.100.68/base/dam-kit v0.0.3
+------------------------------------------------------------
+************************************************************
+
+> git pull 工作区冲突回退或保持修改
+	https://blog.csdn.net/misakaqunianxiatian/article/details/51103734?msclkid=668f4ce0cf4911ecbea81c8243621042
+> git 回退工作区内容
+------------------------------------------------------------
+# 对仓库修改回退到上一版本
+git reset --hard HEAD^
+# 回退到固定的版本
+git reset --hard $commit_version_id
+------------------------------------------------------------
+
+> 安装 ginkgo
+	go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo
+	go get github.com/onsi/gomega/...
+
+	>> 输出
+		ginkgo -cover -coverpkg=github.com/ouryun/dam/plugins/acl.1.0/v1 -coverprofile=coverprofile.cov --json-report=report.json   
+		// go tool cover -func=coverprofile.cov -o coverprofile.txt
+
+> gomega 断言方法
+	>> Expect(err).NotTo(HaveOccurred())   断言 err 为 nil
+	>> Expect(len(listeners)).Should(BeEquivalentTo(2))   断言 长度 等于 2
+
+> shell head
+	> head -1  shell 获取结果的第一行
+
+> flask 运行最小 https 服务
+------------------------------------------------------------
+from flask import Flask
+app = Flask(__name__)
+@app.route('/')
+def hello_world():
+   return 'Hello World'
+if __name__ == '__main__':
+   app.run("0.0.0.0", debug=True, port=9999, ssl_context=("/opt/k8s/work/mock-server/sslserver1.pem", "/opt/k8s/work/mock-server/sslserver1-key.pem"))
+------------------------------------------------------------
+
+> emacs org-mode
+	>> S-RET 复制上一行到下一行 如果是数字自动加1
+	>> M-x org-table-expor 导出 org-table 为 csv
+
+> go json型的 string 制作
+	>> 原数据 {\"defaultAct\":1,\"denyContext\":\"\",\"rules\":[{\"ipInvert\":false,\"act\":0,\"match\":[],\"srcIp\":{\"addressPrefix\":\"123.123.123.123\",\"prefixLen\":\"32\"}}]}
+	>> 目的数据 {"defaultAct":1,"denyContext":"","rules":[{"ipInvert":false,"act":0,"match":[],"srcIp":{"addressPrefix":"123.123.123.123","prefixLen":"32"}}]}
+	>> 放到 json 在线解析上，去转义，压缩，即可，复制到代码中即可变成 "{\"defaultAct\":1,\"denyContext\":\"\",\"rules\":[{\"ipInvert\":false,\"act\":0,\"match\":[],\"srcIp\":{\"addressPrefix\":\"123.123.123.123\",\"prefixLen\":\"32\"}}]}"
+
+
+> systemd Type 字段解析
+	>> Type
+		Type=oneshot	这一选项适用于只执行一项任务、随后立即退出的服务。可能需要同时设置 RemainAfterExit=yes 使得 systemd 在服务进程退出之后仍然认为服务处于激活状态。
+		Type=notify	
+		 与 Type=simple 相同，但约定服务会在就绪后向 systemd 发送一个信号。这一通知的实现由 libsystemd-daemon.so 提供。
+		Type=dbus	若以此方式启动，当指定的 BusName 出现在DBus系统总线上时，systemd认为服务就绪。
+		Type=idle	systemd会等待所有任务处理完成后，才开始执行 idle 类型的单元。其他行为与 Type=simple 类似。
+		Type=forking	systemd认为当该服务进程fork，且父进程退出后服务启动成功。对于常规的守护进程（daemon），除非你确定此启动方式无法满足需求，使用此类型启动即可。使用此启动类型应同时指定 PIDFile=，以便 systemd 能够跟踪服务的主进程
+		Type=simple	（默认值） systemd认为该服务将立即启动。服务进程不会 fork 。如果该服务要启动其他服务，不要使用此类型启动，除非该服务是socket 激活型。
+	>> 类似 dlv 这类的调试，应该选择 forking 类型，因为是 daemon 类型，而以daemon模式运行的进程都有一个特性：总是会有一个瞬间退出的中间父进程
+------------------------------------------------------------
+[Unit]
+Description=High Availability for controller application
+
+[Service]
+Environment=POD_NAMESPACE=default
+WorkingDirectory=/opt/dam
+ExecStart=/opt/dam/gateway
+Type=simple
+Restart=on-failure
+RestartSec=4s
+
+[Install]
+WantedBy=multi-user.target
+------------------------------------------------------------
+
+> kubectl 查看执行命令细节 --v=9 会显示执行kubectl 具体的细节，一般使用 --v=8 即可
+------------------------------------------------------------
+Request Body: {"metadata":{"labels":{"addedlabel":null}}}
+PATCH https://127.0.0.1:6443/apis/gateway.ouryun/v1/namespaces/default/virtualservices/zy-test?fieldManager=kubectl-label
+Request Headers:
+    Accept: application/json
+    Content-Type: application/merge-patch+json
+    User-Agent: kubectl/v1.23.4 (linux/amd64) kubernetes/e6c093d
+------------------------------------------------------------
+
+> kubectl label 操作
+	>> add
+		k label vs mock-vs addedlabel=add
+	>> delete
+		k label vs mock-vs addedlabel-
