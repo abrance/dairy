@@ -1,0 +1,46 @@
+> git diff
+	>> 概念
+		用于对比 git 各个提交和工作流
+	>> 常用选项
+		
+	>> 技巧
+	>> e.g.
+		git diff master dev   比较 master dev 所有文件差异
+		git diff master dev -- readme.txt   比较 master dev readme.txt 文件差异
+		git diff HEAD      比较工作区和最新一次提交全部差异
+		git diff HEAD -- readme.txt  比较工作区和最新一次提交 readme.txt差异
+		git diff   比较工作区和暂存区全部文件差异
+		git diff -- readme.txt  比较工作区和暂存区 readme.txt 文件差异
+		git diff --cached  比较暂存区和版本库差异， --staged 也可以
+		git diff $commit_id $commit_id  比较不同提交之间的差异
+------------------------------------------------------------
+                  git diff HEAD
+           ◄───────────────────────────────►
+┌─────────┐            ┌─────────┐          ┌─────────┐            ┌─────────┐
+│         │            │         │          │         │            │         │
+│         │            │         │          │         │            │         │
+│  work   │ git add    │         │git commit│         │git push    │         │
+│  Area   ├──────────► │  Area   ├────────► │  Area   ├──────────► │  Area   │
+│         │            │         │          │         │            │         │
+│         │            │         │          │         │            │         │
+└─────────┘            └─────────┘          └────┬────┘            └─────────┘
+           ◄──────────►          ◄────────►      │
+              git diff         git diff --cached │
+                                                 │
+                                                 ▼
+
+                                               diff c1 c2
+------------------------------------------------------------
+
+> git reset
+	>> 概念
+		用于将当前HEAD复位到指定状态。一般用于撤消之前的一些操作(如：git add,git commit等)
+	>> 常用选项
+		--hard   reset 索引和目录，自$commit 来的所有操作都被丢弃，将 HEAD 指向$commit
+	>> e.g.
+		git reset --hard HEAD~3回退到三个版本之前，将丢弃这个版本以后的操作
+		git reset --hard   回退pull这个版本后做的任何操作，比如 git pull 后产生的冲突
+		>>> 回滚最近几次提交，并将这几次提交放到另一个分支
+			git branch topic/wip     
+			git reset --hard HEAD~3  
+			git checkout topic/wip   

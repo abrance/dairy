@@ -1,0 +1,75 @@
+> gitlab 迁移后出现 root手动确认用户功能使用不了，只能重置token 解决
+------------------------------------------------------------
+/opt/gitlab/bin/gitlab-psql
+SELECT * FROM public."ci_group_variables";
+SELECT * FROM public."ci_variables";
+UPDATE projects SET runners_token = null, runners_token_encrypted = null;
+UPDATE namespaces SET runners_token = null, runners_token_encrypted = null;
+UPDATE application_settings SET runners_registration_token_encrypted = null;
+------------------------------------------------------------
+
+docker
+------------------------------------------------------------
+# 提交（打包）一个容器
+docker commit $contain_id
+# 导出一个镜像
+docker save -o $desc_path $image_name
+# 导入镜像文件为镜像
+docker load < $image_path
+# 为镜像打标签
+docker tag $image_id
+------------------------------------------------------------
+
+> fortio
+	>> 安装
+		go get fortio.org/fortio
+		brew install fortio
+	>> 概念
+		Fortio (Φορτίο)开始是 Istio 的负载测试工具，现在已经发展成为自己的开源项目
+		Fortio是一个快速、小型（3MB的docker镜像，最小的依赖性）、可重用、可嵌入的go库以及一个命令行工具和服务器进程，服务器包括一个简单的web UI和结果的图形表示（既有单一的延迟图，也有多个结果的比较min、max、avg、qps和百分比图）
+	>> 常用选项
+		-qps rate	每秒查询次数，或0表示无等待/最大qps
+		-c connections	并行同时连接的数量（和匹配的 go routine）。
+		-t duration	运行测试的时间（例如 -t 30m 为30分钟）或0运行到 ^C，示例（默认为5s）。
+		-n numcalls	准确地运行这个数量的调用，而不是持续时间。默认（0）则使用持续时间（-t）。
+		-payload str or -payload-file fname	切换到使用给定有效载荷的POST（随机有效载荷见-payload-size）。
+		-uniform	在线程中分散调用
+		-r resolution	直方图最低桶的分辨率，以秒为单位（默认为0.001，即1ms），使用你预期典型延迟的1/10。
+		-H "header: value"	可以多次指定以添加头信息（包括Host:）。
+		-a	根据标签和时间戳，自动保存带有文件名的JSON结果
+		-json filename	文件名或 - 用于 stdout 输出 json 结果（默认为相对于-data-dir，如果你想让 fortio report 显示它们，应该以 .json 结尾；使用 -a 通常是一个更好的选择。）
+		-labels "l1 l2 ..."	额外的配置数据/标签添加到生成的JSON中，默认为目标URL和主机名。
+		-content-type 或通过 -payload-* 选项之一，从 http GET 查询切换到 POST
+	>> e.g.
+		>>>	fortio load -c 1 -qps 8 -n 100 http://192.192.100.70:10001/   fortio 一个线程 每秒 8个 共发送 100个请求
+		
+> 设置 mongodb 单节点副本模式
+------------------------------------------------------------
+# /etc/mongod.conf
+cat << EOF >> /etc/mongod.conf
+replication:
+  replSetName: "rs0"
+
+systemctl daemon-load
+systemctl restart mongod
+# 有密码填密码
+mongo --eval "rs.initiate()"  
+------------------------------------------------------------
+
+install-mongodb-debian10.sh
+------------------------------------------------------------
+#!/bin/bash
+
+//curl -fsSL https://www.mongodb.org/static/pgp/server-4.2.asc | sudo apt-key add -
+wget -qO - https://www.mongodb.org/static/pgp/server-5.0.asc | apt-key add -
+
+add-apt-repository 'deb https://mirrors.tuna.tsinghua.edu.cn/mongodb/apt/debian buster/mongodb-org/5.0 main'
+apt install -y mongodb-org=5.0.9
+
+systemctl enable mongod --now
+mongo --eval 'db.runCommand({ connectionStatus: 1 })'
+------------------------------------------------------------
+
+
+> go http netpoll 框架的实现和存在的问题
+	https://mp.weixin.qq.com/s?__biz=MzAxMTA4Njc0OQ==&mid=2651443085&idx=3&sn=2c1ed8474bc7fed68b519ce9e5f5e0b0&scene=21
