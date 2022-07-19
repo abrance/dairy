@@ -1,44 +1,61 @@
 > 7.2
 
-> 招商局 版本控制问题方案
-	>> 使用分支 和 tag 处理 不同 project （项目）之间的版本控制
-		>>> 如 release-
 
-> 解决 ubuntu 系统 root 不能登录问题
-------------------------------------------------------------
-# 修改 /etc/ssh/sshd_config
-#PermitRootLogin prohibit-password  这一行下面加上
-PermitRootLogin yes   这一行
-# 执行 systemctl restart sshd
-------------------------------------------------------------
+> 软件版本命名规范
 
-> 7.11
- >> 编译打包招商的 安装包
-  >>> envoy 比对版本 1.11.1  打包md5 f59...  /repo/envoy/envoy-link.tar.gz md5 为 f59...   结论：相同
-  >>> dam 比对版本 488  打包回退到 488   dam md5 bin 731... go.mod(使用最新 fedf6381eb996976a4d08b08ce38d503ed12d53e)  结论：打包后 731... 
-  >>> webserver 比对版本 f7a
-	>>> x-apigateway-web 38d
-  >>> HA 比对版本 dc0
-  >>> file-syncer c45
-  >>> installer 657
- >> 打包位置 100.22 /backup/zsj/installer-release.tar.gz-0711_1628
+du -d 1 /opt | sort -rh
+curl get请求参数 & 需要转义符 https://blog.csdn.net/luosai19910103/article/details/100126003
 
-> 7.11 第二次打包
-	>> 招商局 安装包
-		>>> envoy 比对版本 1.11.1  打包md5 f59...  /repo/envoy/envoy-link.tar.gz md5 为 f59...   结论：相同
-		>>> dam 比对版本 488  打包回退到 488   dam md5 bin 731... go.mod(使用最新 fedf6381eb996976a4d08b08ce38d503ed12d53e)  结论：打包后 731... 
-		>>> webserver release-v1.0.2分支 比对版本 3ce5ad9cd2897f9668bdd58ca1c3b09fcd60ff9f
-		>>> x-apigateway-web a9f
-		>>> HA 比对版本 dc0
-		>>> file-syncer c45
-		>>> installer 657
-	>> 打包位置 installer-release.tar.gz-0711_1921
+
+protocol_version 对应表
+0    未定义
+1    HTTP1.0
+2    HTTP1.1
+3    HTTP2
+4    HTTP3
+
+db..aggregate([
+    /* match pipeline */
+    {
+        "$sort": {
+            "http_log.common_properties.start_time.seconds": -1
+        }
+    },
+		{
+				"$skip": 10
+		},
+		{
+				"$limit": 10
+		}
+]);
+
+apiDetail?mode=2&page=1&size=10
+// login
+curl -H "Content-Type: application/json" -X POST --data '{"mobile": "19999999999", "password":"123456"}'  http://192.192.100.70:20520/login
+{"code":200,"data":{"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE2NTc5NjQ4NTcsImlhdCI6MTY1Nzk1NzY1NywibmFtZSI6IjE5OTk5OTk5OTk5In0.LyRPs6pTGdYy2z6SN0mCAlLUImf5iV-XRm7_VOGuT9A","username":"19999999999"},"msg":"ok"}
+
+// 调用记录
+curl -H "Content-Type: application/json" -X GET  http://192.192.100.70:20520/v1/access/apiDetail?mode=2&page=1&size=10
+
 
 > TODO
-			
+	>> 调用记录 返回了全量数据，需要改为 分页传输
+	>> 访问排行 根据筛选 返回响应的数据
+
+	http://192.192.100.70:20520/v1/access/apiDetail?mode=2
+
+	>> 加上盐值 即可实现完整登录逻辑
 	
-	>> 69 部署
-	>> 单机部署整套脚本
+	>> 将存在性能问题的接口进行优化
+
+	>> feature: 使用中间件将db还未初始化时，所有的前端请求拦截并返回 code: 501
+	>> 没有集合的时候去查集合中的文档会发生什么？
+	>> ss 项目 db collections 数目不定导致查表复杂度上升： envoy实例的个数对应collection的个数
+		>>> 问题
+			>>>> 后期页面可能
+	>> ss 项目编译过程 部署过程 文档整理
+	>> HA 代码接手
+		
 	>> 可视化功能相关日志统计
 	>> 使用多路复用IO 模型
 
@@ -87,6 +104,7 @@ PermitRootLogin yes   这一行
 > 已解决 bug
 
 > 读书
+	>> 精通git
 	>> 程序员修炼之道
 	>> 深入理解 linux 内核
 	>> 深入理解Linux 网络内幕
@@ -99,7 +117,8 @@ PermitRootLogin yes   这一行
 	>> 70 更新webserver web
 		>>> /opt/   ./main.sh
 
- > call
+> call
+	>> 家乐把代码先放到项目里面，进行ss编译部署测试
 	>> 家乐现在将最新的放到 develop 分支，为了使用到最新的前端，使用了 x-apigateway-web develop 分支进行打包，后面 develop 分支需要合并到 main 分支，要记得 将 22 的 x-apigateway-web 切换回 main 分支
 
 
@@ -222,7 +241,7 @@ PermitRootLogin yes   这一行
 		>>> traceroute www.baidu.com
 
 
-> tmux 到处缓冲区日志
+> tmux 导出缓冲区日志
 	>> 捕捉 缓冲区位置
 		-S 起始位置 1025 -E 终点位置   （起始和终点位置可以通过 copy-mode 右上方数字确定）
 		-t 1  指定pane 编号  （pane编号可以通过 C-b w 显示的序号来确定）
@@ -288,7 +307,7 @@ PermitRootLogin yes   这一行
 		>>> 哪些程序其实不需要root权限
 		>>> 如何在systemd里面限制Capability
 
->file-syncer 
+> file-syncer 
 	>> 问题
 		>>> kubebuilder创建项目的方式
 		>>> 整体架构
@@ -322,88 +341,37 @@ echo "  cabundle: 1"| sed -i  's/\("cabundle":"\).*/\1'"3"'",/g'
 awk -F: '/should-replace/{$2=($2==""?"true":"false")}1'
 
 
-> 自走棋
-	决定一次开局（）自走棋输赢的因素为己方小小英雄血量耗尽
-	决定一次对局（）是否败北的条件为己方棋子全部阵亡
-
-> 棋力
-	>> 棋子
-		>>> 属性
-		>>> 技能
-		>>> 羁绊
-		>>> 装备
-	>> 对位
-
-
-第一层
-> 棋子
+> HA
 	>> 概念
-		自走棋最主要由棋子构成，棋子是直接能操作的对象；
-	>> 属性
-		>>> 属性有攻速、血量、攻击力、暴击率、护甲、魔抗、吸血、伤害减免、伤害加成、攻击减免、攻击加成、真实伤害
-	>> 技能
-		>>> 
-		>>> 
-		
-第二层
-> 海克斯
-	>> 概念
-		>>> 海克斯是最能影响前期阵容选择的因素（？）
-	>> 功能
-		>>> 直接增加棋力
-		>>> 增加 增加棋力的概率
-		
-第三层
-> 所有人
-	>> 
-
-第四层
-> 金钱
-
-> 装备选阵容
-	>> 弓
-		>>> 最佳阵容
-			>>>> 星界 给豹女
-			>>>> 重骑狗熊 狗熊
-			>>>> 九怒意瑟提
-			>>>> 驯龙塞芬
-			>>>> 刺转奥拉夫
-			>>>> 狂刃剑魔
-			>>>> 冒险霞
-			>>>> 赌永恩
-
-> 同行选阵容
-	>> T0阵容
-		>>> 驯龙系
-			>>>> 幽影
-			>>>> 法师
-			>>>> 金鳞
-		>>> 狂刃幻境
-		>>> 神龙系
-			>>>> 玉龙
-			>>>> 怒翼龙
-		>>> 星界龙系
-			>>>> 射手
-			>>>> 法师
-		>>> 
-
-> 金鳞玩法
-	>> 概念
-		>>> 九金鳞
-		
-> 星界玩法
-	>> 璐璐(小炮) 艾希（凯影） 蝎子（俄洛依） 娜美 豹女 任何高费卡可提概率
-	>> 璐璐可提概率
-
-> 海克斯选择阵容
-	>> 潘多拉装备栏 + 金铲铲
-		>>> 星界
-		>>> 金鳞
-	>> 纹章之书
-		>>> 星界
-		>>> 金鳞
-	>> 
-
-> 连胜打法
-	>> 2-1 升四  正好剩10块
-	>> 2-3 升五 正好剩 10 块
+		>>> HA 
+		HA 是为整套系统（包含x网关）提供高可用特性的模块，理论上不依赖其他模块。
+		HA 分为 ControllerManager（主备决策） monitor（etcd监视器） ControlPlaneAgent（管理面worker） ProxyAgent（数据面worker）等模块
+	>> 解决哪些问题
+		>>> 如何感知节点不可用？
+		>>> 如何保证切换流程执行正确性？
+		>>> 如何保证绝不发生脑裂？
+	>> HOW
+		>>> 如何感知节点不可用？
+			>>>> 概念
+				HA 的存在意义(主要功能)为在用户无感知的情况下进行故障转移, 想要实现这个功能, 必须先感知节点的状态, 根据节点状态进行相应的操作;
+				可能出现的环境不可用有很多: 网络, 计算资源, 内存资源, 存储资源等硬件资源, 和组件异常, 行为异常, 数据异常等软件资源;
+				因为开发周期和DRY原则, 我们复用 etcd 的高可用决策机制, 去主动感知etcd的可用状态, 而放弃做一个 真正的感知环境 的组件, 来实现感知节点状态;这个感知功能的基础, 建立在我们相信etcd所依赖的环境正是整套系统所依赖的环境, etcd的感知正确性是可靠的, etcd的高可用是可靠的(高可用 高性能 高扩展, 我们可能只实现了高可用), 
+			>>>> etcd 高可用机制实现了高可用吗?实现的是我们所需的高可用吗?
+				etcd 高可用使用了 raft协议实现一致性 关于 raft的实现在 etcd 源码 /raft 目录
+		>>> 如何保证切换流程执行正确性？
+			>>>> 
+		>>> 如何保证绝不发生脑裂？
+			>>>> 
+	>> 架构图
+------------------------------------------------------------
+                                               ┌──────────────┐
+                                        ┌────► │ctlplane-agent│
+                                        │      └──────────────┘
+ ┌──────────┐           ┌──────────┐    │
+ │ monitor  ├─────────► │ manager  ├────┤
+ └────┬─────┘           └──────────┘    │
+      │                                 │       ┌─────────────┐
+      │                                 └────►  │ proxy-agent │
+      ▼                                         └─────────────┘
+node status
+------------------------------------------------------------
